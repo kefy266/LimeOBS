@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LimeOBS — Okulun, masaüstünde.</title>
+<meta name="description" content="LimeOBS: Akbim OBS kullanan okulların öğrenci ve velileri için modern, hızlı ve açık kaynaklı masaüstü istemcisi.">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07110a; --bg2:#0b1a10; --card:rgba(255,255,255,.045); --stroke:rgba(255,255,255,.09);
+  --text:#eef7ef; --muted:#9db3a2; --lime:#5ee05a; --lime2:#b6f36a; --glow:rgba(94,224,90,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1140px;margin:0 auto;padding:0 20px}
+
+/* background blobs */
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:radial-gradient(ellipse at top,var(--bg2),var(--bg) 70%)}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.45;animation:float 18s ease-in-out infinite}
+.b1{width:520px;height:520px;background:#2fa83a;top:-160px;left:-120px}
+.b2{width:420px;height:420px;background:#8be04a;top:30%;right:-140px;animation-delay:-6s;opacity:.25}
+.b3{width:380px;height:380px;background:#1d7a4a;bottom:-120px;left:30%;animation-delay:-12s;opacity:.3}
+@keyframes float{50%{transform:translate(40px,30px) scale(1.08)}}
+
+/* nav */
+nav{position:sticky;top:0;z-index:10;backdrop-filter:blur(16px);background:rgba(7,17,10,.6);border-bottom:1px solid var(--stroke)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.15rem}
+.brand img{width:34px;height:34px}
+.links{display:flex;gap:26px;font-size:.92rem;color:var(--muted)}
+.links a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:999px;font-weight:600;font-size:.95rem;transition:.2s}
+.btn-primary{background:linear-gradient(135deg,var(--lime),var(--lime2));color:#06210a;box-shadow:0 8px 30px var(--glow)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 40px var(--glow)}
+.btn-ghost{border:1px solid var(--stroke);background:var(--card)}
+.btn-ghost:hover{border-color:var(--lime)}
+nav .btn{padding:9px 18px;font-size:.85rem}
+
+/* hero */
+.hero{padding-top:90px;padding-bottom:60px;display:grid;grid-template-columns:1.05fr 1fr;gap:50px;align-items:center}
+.pill{display:inline-block;padding:6px 14px;border-radius:999px;border:1px solid rgba(94,224,90,.35);background:rgba(94,224,90,.08);color:var(--lime2);font-size:.8rem;font-weight:600;margin-bottom:22px}
+h1{font-size:clamp(2.4rem,5.5vw,4rem);line-height:1.05;font-weight:800;letter-spacing:-.03em}
+h1 span{background:linear-gradient(135deg,var(--lime),var(--lime2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--muted);font-size:1.12rem;margin:22px 0 32px;max-width:520px}
+.cta{display:flex;gap:12px;flex-wrap:wrap}
+.os{margin-top:26px;color:var(--muted);font-size:.85rem;display:flex;gap:18px;flex-wrap:wrap}
+
+/* mock window */
+.mock{position:relative;border-radius:22px;border:1px solid var(--stroke);background:rgba(255,255,255,.05);backdrop-filter:blur(20px);box-shadow:0 40px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03) inset;overflow:hidden;transform:perspective(1200px) rotateY(-8deg) rotateX(3deg);transition:.5s}
+.mock:hover{transform:none}
+.bar{display:flex;gap:7px;padding:14px 16px;border-bottom:1px solid var(--stroke)}
+.bar i{width:11px;height:11px;border-radius:50%;background:#ff5f57}.bar i:nth-child(2){background:#febc2e}.bar i:nth-child(3){background:#28c840}
+.mbody{display:grid;grid-template-columns:130px 1fr;min-height:330px}
+.side{border-right:1px solid var(--stroke);padding:14px 10px;display:flex;flex-direction:column;gap:6px;font-size:.75rem;color:var(--muted)}
+.side div{padding:7px 10px;border-radius:10px}
+.side .on{background:rgba(94,224,90,.15);color:var(--lime2)}
+.main{padding:18px;display:flex;flex-direction:column;gap:12px}
+.now{border-radius:16px;padding:14px;background:linear-gradient(135deg,rgba(94,224,90,.22),rgba(182,243,106,.08));border:1px solid rgba(94,224,90,.3)}
+.now small{color:var(--muted);font-size:.7rem}
+.now b{display:block;font-size:1.05rem}
+.badge{display:inline-block;margin-top:6px;font-size:.7rem;padding:3px 10px;border-radius:999px;background:rgba(0,0,0,.3);color:var(--lime2)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mini{border-radius:14px;padding:12px;background:var(--card);border:1px solid var(--stroke);font-size:.72rem;color:var(--muted)}
+.mini b{display:block;color:var(--text);font-size:1.25rem}
+.line{height:8px;border-radius:6px;background:rgba(255,255,255,.07);margin-top:8px}
+.line.s{width:60%}
+
+/* sections */
+section{padding-top:80px;padding-bottom:80px}
+.head{text-align:center;max-width:640px;margin:0 auto 50px}
+h2{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:800;letter-spacing:-.02em}
+.head p{color:var(--muted);margin-top:12px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{padding:26px;border-radius:20px;background:var(--card);border:1px solid var(--stroke);transition:.25s}
+.card:hover{transform:translateY(-4px);border-color:rgba(94,224,90,.4);background:rgba(94,224,90,.05)}
+.ico{font-size:1.6rem;width:48px;height:48px;display:grid;place-items:center;border-radius:14px;background:rgba(94,224,90,.12);margin-bottom:16px}
+.card h3{font-size:1.05rem;margin-bottom:6px}
+.card p{color:var(--muted);font-size:.92rem}
+
+.themes{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.theme{border-radius:20px;padding:22px;height:170px;display:flex;flex-direction:column;justify-content:flex-end;border:1px solid var(--stroke)}
+.theme b{font-size:1.05rem}.theme small{opacity:.75}
+.t1{background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.03));backdrop-filter:blur(10px)}
+.t2{background:#151a17;color:#eef}
+.t3{background:#f6f9f4;color:#1a2a1d}
+
+.privacy{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;padding:44px;border-radius:28px;background:linear-gradient(135deg,rgba(94,224,90,.1),rgba(255,255,255,.02));border:1px solid rgba(94,224,90,.25)}
+.privacy ul{list-style:none;display:flex;flex-direction:column;gap:14px}
+.privacy li{display:flex;gap:12px;color:var(--muted)}
+.privacy li::before{content:"✓";color:var(--lime);font-weight:800}
+
+.install{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+pre{margin-top:12px;background:rgba(0,0,0,.4);border:1px solid var(--stroke);border-radius:12px;padding:12px;font-size:.78rem;overflow-x:auto;color:var(--lime2)}
+
+footer{padding:50px 0;border-top:1px solid var(--stroke);color:var(--muted);font-size:.82rem}
+footer .disc{max-width:780px;margin-top:14px;opacity:.8}
+
+.reveal{opacity:0;transform:translateY(24px);transition:.7s ease}
+.reveal.in{opacity:1;transform:none}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr;padding-top:60px}
+  .grid,.themes,.install{grid-template-columns:1fr 1fr}
+  .privacy{grid-template-columns:1fr;padding:28px}
+  .links{display:none}
+  .mock{transform:none}
+}
+@media (max-width:560px){
+  .grid,.themes,.install{grid-template-columns:1fr}
+  .mbody{grid-template-columns:1fr}.side{display:none}
+}
+</style>
+</head>
+<body>
+<div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+<nav><div class="wrap">
+  <a class="brand" href="#"><img src="icon.png" alt="">LimeOBS</a>
+  <div class="links"><a href="#ozellikler">Özellikler</a><a href="#temalar">Temalar</a><a href="#gizlilik">Gizlilik</a><a href="#kurulum">Kurulum</a></div>
+  <a class="btn btn-primary" href="#kurulum">İndir</a>
+</div></nav>
+
+<header class="wrap hero">
+  <div>
+    <div class="pill">🍋 Açık kaynak · Linux · macOS · Windows</div>
+    <h1>Okulun, artık <span>masaüstünde.</span></h1>
+    <p>LimeOBS, Akbim OBS kullanan okulların öğrenci ve velileri için yapılmış modern bir masaüstü uygulaması. Ders programı, ödevler, sınavlar ve mesajlar tek pencerede, hızlı ve şık.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#kurulum">⬇ Hemen Başla</a>
+      <a class="btn btn-ghost" href="#ozellikler">Özellikleri Gör</a>
+    </div>
+    <div class="os"><span>🐧 AppImage</span><span>🍎 Apple Silicon & Intel</span><span>🪟 Windows 10 / 11</span></div>
+  </div>
+
+  <div class="mock" aria-hidden="true">
+    <div class="bar"><i></i><i></i><i></i></div>
+    <div class="mbody">
+      <div class="side">
+        <div class="on">🏠 Ana Sayfa</div><div>📅 Program</div><div>📝 Ödevler</div><div>📊 Sınavlar</div><div>✉️ Mesajlar</div><div>🍲 Yemek</div><div>🤖 Asistan</div>
+      </div>
+      <div class="main">
+        <div class="now"><small>ŞU AN</small><b>Matematik · 3. Ders</b><span class="badge" id="cd">⏱ Bitişe 18:42</span></div>
+        <div class="row">
+          <div class="mini">Aktif Ödev<b>3</b><div class="line"></div><div class="line s"></div></div>
+          <div class="mini">Devamsızlık<b>2 gün</b><div class="line"></div><div class="line s"></div></div>
+        </div>
+        <div class="mini">Yaklaşan Sınav<b>7. Sınıf DAS 2</b><div class="line"></div></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="ozellikler" class="wrap">
+  <div class="head reveal"><h2>İhtiyacın olan her şey</h2><p>Tarayıcıda sekmeler arasında kaybolmaya son. LimeOBS, OBS'deki her şeyi tek, akıcı bir arayüzde toplar.</p></div>
+  <div class="grid">
+    <div class="card reveal"><div class="ico">⏱️</div><h3>Canlı Ders Sayacı</h3><p>Hangi dersteyiz, sıradaki derse ne kadar var? Geri sayım rozetleriyle anında gör.</p></div>
+    <div class="card reveal"><div class="ico">📚</div><h3>Ödevler & Ekler</h3><p>Teslim durumları, öğretmen notları ve ekli dosyalar tek tıkla elinde.</p></div>
+    <div class="card reveal"><div class="ico">📊</div><h3>Sınavlar & Karne</h3><p>Sınav sonuçları, ayrıntılı raporlar ve devamsızlık saatleri tek yerde.</p></div>
+    <div class="card reveal"><div class="ico">✉️</div><h3>Öğretmenlere Mesaj</h3><p>Gelen kutusu, giden mesajlar ve isimle öğretmen arayıp anında yazma.</p></div>
+    <div class="card reveal"><div class="ico">🔔</div><h3>Arka Plan Bildirimleri</h3><p>Uygulama kapalıyken bile yeni ödev, mesaj veya duyuru gelince haberin olsun.</p></div>
+    <div class="card reveal"><div class="ico">👨‍👩‍👧</div><h3>Veli Paneli</h3><p>Velilere öğrencinin temiz bir özet kartı; tek tıkla detaylı görünüme geçiş.</p></div>
+    <div class="card reveal"><div class="ico">📑</div><h3>Dahili PDF Görüntüleyici</h3><p>Ekleri harici programa gerek kalmadan, zoom ve sayfa gezinmeyle aç.</p></div>
+    <div class="card reveal"><div class="ico">⌘</div><h3>Komut Paleti</h3><p><b>Ctrl/⌘ + K</b> ile her ekrana saniyeler içinde ulaş.</p></div>
+    <div class="card reveal"><div class="ico">🍲</div><h3>Yemekhane & Daha Fazlası</h3><p>Yemek listesi, etüt, kütüphane, randevular, etkinlikler ve AI asistanı.</p></div>
+  </div>
+</section>
+
+<section id="temalar" class="wrap">
+  <div class="head reveal"><h2>Üç tema, tek zevk</h2><p>Yumuşak köşeler, pill butonlar ve buzlu cam katmanlar. Ruh haline göre seç.</p></div>
+  <div class="themes">
+    <div class="theme t1 reveal"><b>Liquid Glass</b><small>Derin, şeffaf buzlu cam</small></div>
+    <div class="theme t2 reveal"><b>Koyu</b><small>Göz yormayan karanlık</small></div>
+    <div class="theme t3 reveal"><b>Beyaz</b><small>Kristal netliğinde aydınlık</small></div>
+  </div>
+</section>
+
+<section id="gizlilik" class="wrap">
+  <div class="privacy reveal">
+    <div><h2>Verilerin sende kalır.</h2><p style="color:var(--muted);margin-top:12px">LimeOBS arada hiçbir sunucu kullanmaz. Uygulama doğrudan okulunun OBS sunucusuyla konuşur.</p></div>
+    <ul>
+      <li>Hiçbir veri üçüncü taraflara gönderilmez.</li>
+      <li>Tüm istekler HTTPS ile doğrudan okul sunucusuna gider.</li>
+      <li>"Beni Hatırla" bilgileri işletim sisteminin anahtarlığında şifreli saklanır.</li>
+      <li>Kaynak kodu açık, ne yaptığını kendin görebilirsin.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="kurulum" class="wrap">
+  <div class="head reveal"><h2>Kurulum</h2><p>Birkaç dakikada hazır.</p></div>
+  <div class="install">
+    <div class="card reveal"><div class="ico">🐧</div><h3>Linux</h3><p>AppImage'ı indir, çalıştırılabilir yap ve aç.</p><pre>chmod +x LimeOBS-x86_64.AppImage
+./LimeOBS-x86_64.AppImage</pre></div>
+    <div class="card reveal"><div class="ico">🍎</div><h3>macOS</h3><p>Homebrew ile GTK4'ü kur, sonra betiği çalıştır.</p><pre>brew install gtk4 libadwaita pygobject3
+./setup_mac.sh</pre></div>
+    <div class="card reveal"><div class="ico">🪟</div><h3>Windows</h3><p>Kurulum betiğine çift tıkla, gerisini o halleder.</p><pre>setup_windows.bat</pre></div>
+  </div>
+</section>
+
+<footer><div class="wrap">
+  <div class="brand"><img src="icon.png" alt="">LimeOBS</div>
+  <p class="disc">LimeOBS bağımsız, açık kaynaklı bir üçüncü taraf istemcidir. Akbim, okul yönetimleri veya ilgili kurumlarla hiçbir ticari, kurumsal ya da resmi bağlantısı yoktur. Hesap bilgilerinizi kendi sorumluluğunuzda kullanırsınız.</p>
+</div></footer>
+
+<script>
+// scroll reveal
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+// fake countdown in mockup
+let s=18*60+42;const cd=document.getElementById('cd');
+setInterval(()=>{s=s>0?s-1:40*60;cd.textContent=`⏱ Bitişe ${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`},1000);
+</script>
+</body>
+</html>
