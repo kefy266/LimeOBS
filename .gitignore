@@ -24,10 +24,6 @@ backups/
 .obsidian/
 İncelenen PHP'ler/
 
-# Eski Firebase denemeleri (API anahtarı içeriyor, uygulama kullanmıyor)
-fb_test.py
-akbimmesajlar.py
-
 # Başka bir projenin (GöktürkOBS) arşivlenmiş kodları ve macOS çöpleri
 İlgili Diğer Dosyacıklar/
 __MACOSX/
