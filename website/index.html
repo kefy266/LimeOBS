@@ -40,12 +40,12 @@ nav .wrap{height:60px;display:flex;align-items:center;justify-content:space-betw
 nav .btn{height:34px;padding:0 14px;font-size:13px}
 
 /* hero */
-.hero{padding-top:120px;padding-bottom:72px;text-align:center}
+.hero.wrap{padding-top:120px;padding-bottom:0;text-align:center}
 .tag{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-bottom:28px}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
-h1{font-size:clamp(40px,7vw,72px);line-height:1.02;font-weight:600;letter-spacing:-.045em;max-width:760px;margin:0 auto}
+h1{font-size:clamp(38px,7vw,72px);line-height:1.05;text-wrap:balance;font-weight:600;letter-spacing:-.045em;max-width:760px;margin:0 auto}
 h1 em{font-style:normal;color:var(--accent)}
-.lead{font-size:18px;color:var(--muted);max-width:520px;margin:24px auto 36px}
+.lead{font-size:18px;color:var(--muted);max-width:560px;margin:24px auto 36px;text-wrap:balance}
 .cta{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 
 /* app preview */
@@ -63,37 +63,38 @@ h1 em{font-style:normal;color:var(--accent)}
 .pv-h small{color:var(--faint);font-size:12px}
 .now{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border:1px solid var(--line);border-radius:10px;margin-bottom:14px}
 .now .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
-.now .v{font-weight:500;margin-top:2px}
+.now .v{font-weight:500;margin-top:4px}
 .timer{font-size:13px;color:var(--accent);background:var(--accent-soft);padding:5px 10px;border-radius:6px}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:10px}
-.stats div{padding:16px 20px}
-.stats div+div{border-left:1px solid var(--line)}
+.stats>div{padding:16px 20px}
+.stats>div+div{border-left:1px solid var(--line)}
 .stats .k{font-size:12px;color:var(--faint)}
-.stats .v{font-size:24px;font-weight:600;letter-spacing:-.03em}
+.stats .v{margin-top:4px;font-size:24px;font-weight:600;letter-spacing:-.03em}
 .list{margin-top:14px;border:1px solid var(--line);border-radius:10px}
-.list div{display:flex;justify-content:space-between;padding:12px 20px;font-size:13px}
-.list div+div{border-top:1px solid var(--line)}
-.list span:last-child{color:var(--faint)}
+.list>div{display:flex;justify-content:space-between;gap:16px;padding:12px 20px;font-size:13px}
+.list>div+div{border-top:1px solid var(--line)}
+.list span:last-child{color:var(--faint);white-space:nowrap}
 
 /* sections */
-section{padding-top:120px}
+section.wrap{padding-top:128px}
 .eyebrow{font-size:13px;color:var(--accent);font-weight:500;margin-bottom:12px}
-h2{font-size:clamp(28px,4vw,40px);font-weight:600;letter-spacing:-.035em;line-height:1.1;max-width:560px}
-.sub{color:var(--muted);margin-top:14px;max-width:480px}
+h2{font-size:clamp(28px,4vw,40px);font-weight:600;letter-spacing:-.035em;line-height:1.15;max-width:600px;text-wrap:balance}
+.sub{color:var(--muted);margin-top:16px;max-width:480px;text-wrap:pretty}
 
 .features{margin-top:56px;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line)}
 .f{padding:28px 28px 32px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
 .f svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;margin-bottom:18px}
 .f h3{font-size:15px;font-weight:600;margin-bottom:6px}
-.f p{color:var(--muted);font-size:14px}
+.f p{color:var(--muted);font-size:14px;text-wrap:pretty}
+kbd{font-family:"Geist Mono",monospace;font-size:12px;padding:1px 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:var(--bg);color:var(--text)}
 
 .split{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:start}
 .checks{list-style:none;border-top:1px solid var(--line)}
-.checks li{padding:18px 0;border-bottom:1px solid var(--line);display:flex;gap:14px;font-size:15px}
-.checks li::before{content:"";flex:none;width:16px;height:16px;margin-top:4px;border-radius:50%;background:var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='%233fae3a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat}
+.checks li{padding:16px 0;line-height:1.5;border-bottom:1px solid var(--line);display:flex;gap:14px;font-size:15px}
+.checks li::before{content:"";flex:none;width:16px;height:16px;margin-top:2px;border-radius:50%;background:var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='%233fae3a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat}
 
 /* install */
-.tabs{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:40px}
+.tabs{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:36px}
 .tabs button{border:0;background:none;font:inherit;font-size:13px;color:var(--muted);padding:7px 16px;border-radius:7px;cursor:pointer}
 .tabs button.on{background:var(--bg);color:var(--text);font-weight:500;box-shadow:0 0 0 1px var(--line)}
 .code{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:20px 22px;font-size:13.5px;line-height:1.9;overflow-x:auto}
@@ -111,13 +112,13 @@ footer p.disc{margin-top:20px;color:var(--faint);max-width:640px;font-size:12px}
   .split{grid-template-columns:1fr;gap:40px}
   .pv{grid-template-columns:1fr}.pv-side{display:none}
   .nav-r a:not(.btn){display:none}
-  .hero{padding-top:80px}
-  section{padding-top:88px}
+  .hero.wrap{padding-top:72px}
+  section.wrap{padding-top:96px}
 }
 @media (max-width:540px){
   .features{grid-template-columns:1fr}
   .pv-main{padding:20px}
-  .stats{grid-template-columns:1fr}.stats div+div{border-left:0;border-top:1px solid var(--line)}
+  .stats{grid-template-columns:1fr}.stats>div+div{border-left:0;border-top:1px solid var(--line)}
 }
 </style>
 </head>
@@ -129,12 +130,12 @@ footer p.disc{margin-top:20px;color:var(--faint);max-width:640px;font-size:12px}
     <a href="#ozellikler">Özellikler</a>
     <a href="#gizlilik">Gizlilik</a>
     <a href="#kurulum">Kurulum</a>
-    <a class="btn btn-dark" href="#kurulum">İndir</a>
+    <a class="btn btn-dark" href="https://github.com/kefy266/LimeOBS/releases/latest">İndir</a>
   </div>
 </div></nav>
 
 <header class="wrap hero">
-  <div class="tag"><span class="dot"></span>Açık kaynak · Linux, macOS, Windows</div>
+  <div class="tag"><span class="dot"></span>Açık kaynak&nbsp;·&nbsp;Linux, macOS, Windows</div>
   <h1>Okul hayatın, <em>tek pencerede.</em></h1>
   <p class="lead">Akbim OBS için sade ve hızlı bir masaüstü uygulaması. Ders programı, ödevler, sınavlar ve mesajlar, tarayıcı sekmeleri olmadan.</p>
   <div class="cta">
@@ -179,7 +180,7 @@ footer p.disc{margin-top:20px;color:var(--faint);max-width:640px;font-size:12px}
     <div class="f"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><h3>Sınavlar ve karne</h3><p>Sonuçlar, ayrıntılı raporlar ve devamsızlık saatleri.</p></div>
     <div class="f"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><h3>Öğretmenlere mesaj</h3><p>Gelen kutusu, ekler ve isimle öğretmen arayıp yazma.</p></div>
     <div class="f"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"/></svg><h3>Arka plan bildirimleri</h3><p>Uygulama kapalıyken bile yeni ödev ve mesajlardan haberdar ol.</p></div>
-    <div class="f"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg><h3>Komut paleti</h3><p><span class="mono">Ctrl K</span> ile her ekrana saniyeler içinde ulaş.</p></div>
+    <div class="f"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg><h3>Komut paleti</h3><p><kbd>Ctrl</kbd> <kbd>K</kbd> ile her ekrana saniyeler içinde ulaş.</p></div>
   </div>
 </section>
 
@@ -200,15 +201,16 @@ footer p.disc{margin-top:20px;color:var(--faint);max-width:640px;font-size:12px}
 <section id="kurulum" class="wrap">
   <div class="eyebrow">Kurulum</div>
   <h2>Birkaç dakikada hazır.</h2>
+  <p class="sub">Hazır derlenmiş sürümleri <a href="https://github.com/kefy266/LimeOBS/releases/latest" style="color:var(--accent)">GitHub Releases</a> sayfasından indir.</p>
   <div class="tabs" role="tablist">
     <button class="on" data-t="linux">Linux</button>
     <button data-t="mac">macOS</button>
     <button data-t="win">Windows</button>
   </div>
   <div class="code mono">
-    <div class="pane on" id="linux"><div class="c"># AppImage'ı indirip çalıştır</div><div><span class="p">$ </span>chmod +x LimeOBS-x86_64.AppImage</div><div><span class="p">$ </span>./LimeOBS-x86_64.AppImage</div></div>
-    <div class="pane" id="mac"><div class="c"># GTK4 ve Libadwaita'yı kur, ardından betiği çalıştır</div><div><span class="p">$ </span>brew install gtk4 libadwaita pygobject3</div><div><span class="p">$ </span>./setup_mac.sh</div></div>
-    <div class="pane" id="win"><div class="c"># Kurulum betiğine çift tıkla ya da çalıştır</div><div><span class="p">&gt; </span>setup_windows.bat</div></div>
+    <div class="pane on" id="linux"><div class="c"># Releases sayfasından AppImage'ı indir</div><div><span class="p">$ </span>chmod +x LimeOBS-x86_64.AppImage</div><div><span class="p">$ </span>./LimeOBS-x86_64.AppImage</div></div>
+    <div class="pane" id="mac"><div class="c"># LimeOBS-macOS.zip'i aç, uygulamayı Programlar'a taşı</div><div class="c"># İmzasız olduğu için ilk açılışta:</div><div><span class="p">$ </span>xattr -cr /Applications/LimeOBS.app</div></div>
+    <div class="pane" id="win"><div class="c"># LimeOBS.exe'yi indir ve çift tıkla, kurulum gerekmez</div><div class="c"># SmartScreen uyarısında: Ek bilgi → Yine de çalıştır</div></div>
   </div>
 </section>
 

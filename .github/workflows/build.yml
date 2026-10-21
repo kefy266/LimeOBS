@@ -1,0 +1,145 @@
+name: Derleme
+
+# macOS dakikaları private depolarda 10 kat sayıldığı için her push'ta değil,
+# yalnızca sürüm etiketi (v1.0.0 gibi) atıldığında veya elle tetiklendiğinde çalışır.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    name: Linux (AppImage)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sistem bağımlılıkları
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv python3-gi python3-gi-cairo \
+            gir1.2-gtk-4.0 gir1.2-adw-1 libadwaita-1-0 \
+            imagemagick libfuse2t64 desktop-file-utils file
+
+      - name: Python ortamı
+        run: |
+          python3 -m venv --system-site-packages venv
+          venv/bin/pip install --upgrade pip
+          venv/bin/pip install pyinstaller requests beautifulsoup4 keyring pypdf pillow
+
+      - name: appimagetool
+        run: |
+          mkdir -p tools && cd tools
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage --appimage-extract >/dev/null
+
+      - name: AppImage derle
+        run: ./build_appimage.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LimeOBS-Linux
+          path: dist_appimage/LimeOBS-x86_64.AppImage
+
+  macos:
+    name: macOS (.app)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Homebrew bağımlılıkları
+        run: brew install gtk4 libadwaita pygobject3 adwaita-icon-theme
+
+      - name: Python ortamı
+        run: |
+          # pygobject3 hangi Homebrew Python'una bağlıysa onu kullan
+          PYF=$(brew deps pygobject3 | grep -E '^python@' | head -1)
+          PY="$(brew --prefix "$PYF")/libexec/bin/python"
+          "$PY" -m venv --system-site-packages venv
+          venv/bin/pip install --upgrade pip
+          venv/bin/pip install pyinstaller requests beautifulsoup4 keyring pypdf pillow
+
+      - name: .app derle
+        run: |
+          venv/bin/pyinstaller --noconfirm --clean --windowed \
+            --name LimeOBS \
+            --icon akbim_frontend/app_icon.icns \
+            --osx-bundle-identifier com.kagan.limeobs \
+            --paths . --paths akbim_frontend \
+            --add-data "akbim_frontend:akbim_frontend" \
+            --add-data "akbim_api.py:." \
+            --collect-all requests --collect-all bs4 \
+            akbim_frontend/main.py
+          ditto -c -k --keepParent dist/LimeOBS.app LimeOBS-macOS-arm64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LimeOBS-macOS
+          path: LimeOBS-macOS-arm64.zip
+
+  windows:
+    name: Windows (.exe)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gtk4
+            mingw-w64-ucrt-x86_64-libadwaita
+            mingw-w64-ucrt-x86_64-adwaita-icon-theme
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-python-gobject
+            mingw-w64-ucrt-x86_64-python-pip
+            mingw-w64-ucrt-x86_64-python-pillow
+            mingw-w64-ucrt-x86_64-python-requests
+            mingw-w64-ucrt-x86_64-python-beautifulsoup4
+            mingw-w64-ucrt-x86_64-pyinstaller
+
+      - name: Python paketleri
+        run: pip install --break-system-packages keyring pypdf
+
+      - name: .exe derle
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed \
+            --name LimeOBS \
+            --icon akbim_frontend/app_icon.png \
+            --paths . --paths akbim_frontend \
+            --add-data "akbim_frontend:akbim_frontend" \
+            --add-data "akbim_api.py:." \
+            --collect-all requests --collect-all bs4 \
+            akbim_frontend/main.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LimeOBS-Windows
+          path: dist/LimeOBS.exe
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            out/LimeOBS-x86_64.AppImage
+            out/LimeOBS-macOS-arm64.zip
+            out/LimeOBS.exe

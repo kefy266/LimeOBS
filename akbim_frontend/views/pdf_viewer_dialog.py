@@ -203,7 +203,8 @@ class PdfViewerDialog(Adw.Window):
         except Exception:
             try:
                 # 2. Alternatif: Sistem yazdırma aracıyla aç
-                subprocess.Popen(["xdg-open", self.temp_file_path])
+                from api_bridge import open_file_external
+                open_file_external(self.temp_file_path)
             except Exception as err:
                 print(f"Yazdırma hatası: {err}")
 

@@ -1,4 +1,3 @@
-import subprocess
 import threading
 import gi
 gi.require_version("Gtk", "4.0")
@@ -236,6 +235,7 @@ class SchoolLifeView(Gtk.ScrolledWindow):
         if not url:
             return
         try:
-            subprocess.Popen(["xdg-open", url])
+            import webbrowser
+            webbrowser.open(url)
         except Exception as e:
             print(f"URL açma hatası: {e}")

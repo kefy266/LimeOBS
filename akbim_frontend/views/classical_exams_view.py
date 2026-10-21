@@ -98,12 +98,12 @@ class ClassicalExamsView(Gtk.ScrolledWindow):
     def open_exam_schedule_pdf(self):
         def worker():
             from api_bridge import fetch_exam_days_calendar
-            import subprocess
             cal = fetch_exam_days_calendar()
             view_url = cal.get("view_url") or cal.get("download_url")
             if view_url:
                 try:
-                    subprocess.Popen(["xdg-open", view_url])
+                    import webbrowser
+                    webbrowser.open(view_url)
                 except Exception as e:
                     print(f"Takvim açma hatası: {e}")
         threading.Thread(target=worker, daemon=True).start()
