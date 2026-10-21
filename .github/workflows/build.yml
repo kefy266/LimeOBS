@@ -15,7 +15,7 @@ jobs:
     name: Linux (AppImage)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Sistem bağımlılıkları
         run: |
@@ -40,7 +40,7 @@ jobs:
       - name: AppImage derle
         run: ./build_appimage.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: LimeOBS-Linux
           path: dist_appimage/LimeOBS-x86_64.AppImage
@@ -49,7 +49,7 @@ jobs:
     name: macOS (.app)
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Homebrew bağımlılıkları
         run: brew install gtk4 libadwaita pygobject3 adwaita-icon-theme
@@ -65,18 +65,10 @@ jobs:
 
       - name: .app derle
         run: |
-          venv/bin/pyinstaller --noconfirm --clean --windowed \
-            --name LimeOBS \
-            --icon akbim_frontend/app_icon.icns \
-            --osx-bundle-identifier com.kagan.limeobs \
-            --paths . --paths akbim_frontend \
-            --add-data "akbim_frontend:akbim_frontend" \
-            --add-data "akbim_api.py:." \
-            --collect-all requests --collect-all bs4 \
-            akbim_frontend/main.py
+          venv/bin/pyinstaller --noconfirm --clean limeobs.spec
           ditto -c -k --keepParent dist/LimeOBS.app LimeOBS-macOS-arm64.zip
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: LimeOBS-macOS
           path: LimeOBS-macOS-arm64.zip
@@ -88,7 +80,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: msys2/setup-msys2@v2
         with:
@@ -110,17 +102,9 @@ jobs:
         run: pip install --break-system-packages keyring pypdf
 
       - name: .exe derle
-        run: |
-          pyinstaller --noconfirm --clean --onefile --windowed \
-            --name LimeOBS \
-            --icon akbim_frontend/app_icon.png \
-            --paths . --paths akbim_frontend \
-            --add-data "akbim_frontend:akbim_frontend" \
-            --add-data "akbim_api.py:." \
-            --collect-all requests --collect-all bs4 \
-            akbim_frontend/main.py
+        run: pyinstaller --noconfirm --clean limeobs.spec
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: LimeOBS-Windows
           path: dist/LimeOBS.exe
@@ -131,7 +115,7 @@ jobs:
     needs: [linux, macos, windows]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: out
           merge-multiple: true

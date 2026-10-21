@@ -29,8 +29,8 @@ backups/
 __MACOSX/
 .DS_Store
 
-# PyInstaller tarafından build_appimage.sh ile üretilir (mutlak yol içerir)
-*.spec
+# Eski, mutlak yol içeren PyInstaller dosyası (yerine limeobs.spec kullanılıyor)
+limeobs-bin.spec
 
 # Derlenmiş dosyalar (Actions ile üretilir, depoya girmez)
 website/downloads/

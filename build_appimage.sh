@@ -25,21 +25,7 @@ convert "$ICON_SRC" -resize 256x256 "$APPDIR/com.kagan.limeobs.png"
 convert "$ICON_SRC" -resize 256x256 "$APPDIR/.DirIcon"
 
 echo "=== 2. PyInstaller ile Binary ve Bağımlılıkların Derlenmesi ==="
-"$PROJECT_DIR/venv/bin/pyinstaller" \
-    --noconfirm \
-    --clean \
-    --name "limeobs-bin" \
-    --onedir \
-    --windowed \
-    --paths "$PROJECT_DIR" \
-    --paths "$PROJECT_DIR/akbim_frontend" \
-    --add-data "$PROJECT_DIR/akbim_frontend:akbim_frontend" \
-    --add-data "$PROJECT_DIR/akbim_api.py:." \
-    --collect-all gi \
-    --collect-all requests \
-    --collect-all bs4 \
-    --collect-all PIL \
-    "$PROJECT_DIR/akbim_frontend/main.py"
+"$PROJECT_DIR/venv/bin/pyinstaller" --noconfirm --clean "$PROJECT_DIR/limeobs.spec"
 
 echo "=== 3. AppDir İçine Kopyalama ==="
 cp -r dist/limeobs-bin/* "$APPDIR/usr/bin/"
