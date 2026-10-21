@@ -1,0 +1,612 @@
+/* ==========================================================================
+   Akbim OBS — Ultra-Frosted Ice Glass & Rounded Modern Master Stylesheet
+   ========================================================================== */
+
+/* ---------------------------------------------------------
+   1. Genel Yuvarlak Hatlar (Rounded Everything)
+   --------------------------------------------------------- */
+button {
+    border-radius: 9999px;
+    padding: 6px 14px;
+}
+
+entry, passwordentry {
+    border-radius: 9999px;
+    padding: 6px 14px;
+}
+
+.card, list, preferencesgroup list {
+    border-radius: 24px;
+}
+
+row {
+    border-radius: 16px;
+    margin: 3px 6px;
+}
+
+/* Rozetler */
+.badge-primary {
+    background-color: alpha(@accent_color, 0.16);
+    color: @accent_color;
+    border-radius: 9999px;
+    padding: 3px 12px;
+    font-size: 0.82em;
+    font-weight: 700;
+}
+
+.badge-active {
+    background: linear-gradient(135deg, @accent_bg_color, #3584e4);
+    color: #ffffff;
+    border-radius: 9999px;
+    padding: 4px 14px;
+    font-size: 0.82em;
+    font-weight: 700;
+    box-shadow: 0 2px 8px alpha(@accent_color, 0.4);
+}
+
+.badge-upcoming {
+    background-color: alpha(@accent_color, 0.14);
+    color: @accent_color;
+    border-radius: 9999px;
+    padding: 3px 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+/* Ödev ve Değerlendirme Özel Rozetleri */
+.badge-hw-completed {
+    background-color: rgba(46, 194, 126, 0.18);
+    color: #2ec27e;
+    border: 1px solid rgba(46, 194, 126, 0.35);
+    border-radius: 9999px;
+    padding: 3px 12px;
+    font-size: 0.82em;
+    font-weight: 700;
+}
+
+.badge-hw-missing {
+    background-color: rgba(246, 97, 81, 0.18);
+    color: #f66151;
+    border: 1px solid rgba(246, 97, 81, 0.35);
+    border-radius: 9999px;
+    padding: 3px 12px;
+    font-size: 0.82em;
+    font-weight: 700;
+}
+
+.badge-hw-incomplete {
+    background-color: rgba(245, 194, 17, 0.18);
+    color: #f5c211;
+    border: 1px solid rgba(245, 194, 17, 0.35);
+    border-radius: 9999px;
+    padding: 3px 12px;
+    font-size: 0.82em;
+    font-weight: 700;
+}
+
+.badge-hw-unevaluated {
+    background-color: rgba(53, 132, 228, 0.18);
+    color: #3584e4;
+    border: 1px solid rgba(53, 132, 228, 0.35);
+    border-radius: 9999px;
+    padding: 3px 12px;
+    font-size: 0.82em;
+    font-weight: 700;
+}
+
+.badge-failed {
+    background-color: rgba(246, 97, 81, 0.2);
+    color: #f66151;
+    border-radius: 9999px;
+    padding: 3px 10px;
+    font-size: 0.82em;
+    font-weight: 700;
+}
+
+.active-lesson-card {
+    background-color: alpha(@accent_bg_color, 0.22);
+    border: 1.5px solid @accent_color;
+}
+
+/* 📅 Ders Programı Özel Kart & Sütun Tasarımı (Kompakt ve Duyarlı) */
+.schedule-column {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 4px;
+}
+
+.schedule-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 10px;
+    padding: 6px 8px;
+    margin: 2px 0;
+    transition: all 120ms ease;
+}
+
+.schedule-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.20);
+}
+
+.schedule-badge {
+    background: rgba(56, 189, 248, 0.16);
+    color: #38bdf8;
+    border-radius: 5px;
+    padding: 1px 5px;
+    font-size: 0.68em;
+    font-weight: 700;
+}
+
+/* 📚 Ödev Listesi Kart Tasarımı */
+.homework-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 16px;
+    padding: 14px 18px;
+    margin: 4px 0;
+    transition: all 150ms ease;
+}
+
+.homework-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.20);
+}
+
+window.theme-light .homework-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.profile-picture {
+    border-radius: 28px;
+    border: 3px solid alpha(@accent_color, 0.45);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.error-text {
+    color: @destructive_color;
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
+.session-alert-box {
+    background-color: alpha(@destructive_color, 0.14);
+    border: 1px solid alpha(@destructive_color, 0.38);
+    border-radius: 16px;
+    padding: 12px 16px;
+    color: @destructive_color;
+}
+
+/* Segmented Bar ve Buton Taşkınlık Engelleme */
+.segmented-bar button {
+    padding: 6px 14px;
+    margin: 2px;
+}
+
+/* ---------------------------------------------------------
+   2. TEMA 1: GERÇEK ŞEFFAF BUZ GİBİ CAM (FROSTED ICE GLASS)
+   macOS Sequoia / VisionOS Şeffaf Kristal Cam Dili
+   --------------------------------------------------------- */
+window.theme-liquid {
+    /* Nötr, derin duman/kristal buz koyuluğu */
+    background: radial-gradient(circle at 50% 0%, #1c1d22 0%, #121316 50%, #0a0a0c 100%);
+    color: #ffffff;
+}
+
+/* Üst Başlık Çubuğu: Kristal şeffaf cam çıtası */
+window.theme-liquid headerbar {
+    background: rgba(255, 255, 255, 0.035);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.13);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Sol Kenar Çubuğu: Şeffaf buzlu cam */
+window.theme-liquid .navigation-sidebar {
+    background: rgba(255, 255, 255, 0.025);
+    border-right: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+window.theme-liquid .navigation-sidebar row {
+    border-radius: 18px;
+    margin: 3px 6px;
+    color: #e2e8f0;
+    transition: all 150ms ease;
+}
+
+window.theme-liquid .navigation-sidebar row:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #ffffff;
+}
+
+window.theme-liquid .navigation-sidebar row:selected {
+    /* Kristal cam içi beyaz/gümüş ışık vurgusu */
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    color: #ffffff;
+    font-weight: 700;
+}
+
+/* Kartlar ve Tercih Listeleri: Tam Şeffaf Buz Camı Panelleri */
+window.theme-liquid list,
+window.theme-liquid .card,
+window.theme-liquid preferencesgroup list {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-top: 1px solid rgba(255, 255, 255, 0.26); /* Kristal üst ışık yansıması */
+    border-radius: 26px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+window.theme-liquid row {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #f8fafc;
+    border-radius: 16px;
+}
+
+window.theme-liquid row:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Okunaklılık için alt başlıklar */
+window.theme-liquid .subtitle {
+    color: rgba(255, 255, 255, 0.72);
+}
+
+window.theme-liquid entry,
+window.theme-liquid passwordentry {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 9999px;
+    color: #ffffff;
+}
+
+/* ---------------------------------------------------------
+   3. TEMA 2: DOĞRU DÜZGÜN BEYAZ (Pürüzsüz & Yüksek Kontrast)
+   --------------------------------------------------------- */
+window.theme-light {
+    background-color: #f8fafc;
+    color: #0f172a;
+}
+
+window.theme-light headerbar {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    color: #0f172a;
+}
+
+window.theme-light .navigation-sidebar {
+    background-color: #f1f5f9;
+    border-right: 1px solid #e2e8f0;
+}
+
+window.theme-light list,
+window.theme-light .card,
+window.theme-light preferencesgroup list {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    color: #0f172a;
+}
+
+window.theme-light row {
+    color: #0f172a;
+    border-bottom: 1px solid #f1f5f9;
+    border-radius: 16px;
+}
+
+window.theme-light row:hover {
+    background-color: #f8fafc;
+}
+
+window.theme-light row:selected {
+    background-color: #e2e8f0;
+    color: #1e293b;
+    font-weight: 600;
+}
+
+/* ---------------------------------------------------------
+   4. TEMA 3: ORİJİNAL KOYU (Orijinal Doğal Libadwaita Koyu Modu)
+   --------------------------------------------------------- */
+window.theme-dark list,
+window.theme-dark .card,
+window.theme-dark preferencesgroup list {
+    border-radius: 24px;
+}
+
+window.theme-dark row {
+    border-radius: 16px;
+}
+
+/* ---------------------------------------------------------
+   5. GÖKTÜRK OBS MODERN MİNİMALİST DASHBOARD STİLLERİ
+   --------------------------------------------------------- */
+.gokturk-card {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 26px;
+    padding: 22px 24px;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+window.theme-light .gokturk-card {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.gokturk-action-link {
+    color: alpha(@accent_color, 0.85);
+    font-size: 0.88em;
+    font-weight: 500;
+    padding: 0;
+    min-height: 0;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.gokturk-action-link:hover {
+    color: @accent_color;
+    background: transparent;
+}
+
+.lesson-schedule-line {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 12px 6px;
+    transition: background-color 0.15s ease;
+}
+
+window.theme-light .lesson-schedule-line {
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.lesson-schedule-line:last-child {
+    border-bottom: none;
+}
+
+.lesson-circle-icon {
+    opacity: 0.35;
+    font-size: 11px;
+}
+
+/* ⏱️ Canlı Ders / Teneffüs Durum Kartı */
+.live-status-banner {
+    border-radius: 18px;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(99, 102, 241, 0.15));
+    border: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+.live-status-break {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(16, 185, 129, 0.15));
+    border: 1px solid rgba(34, 197, 94, 0.28);
+}
+
+/* 🎒 Çanta & Ders Kitabı Hatırlatıcı Kartı */
+.bag-reminder-card {
+    border-radius: 18px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(234, 88, 12, 0.12));
+    border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.book-tag {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 4px 10px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+window.theme-light .book-tag {
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    color: #1e293b;
+}
+
+/* 📊 Deneme Sınavı Mini Net Çubuğu */
+.exam-bar-container {
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 8px;
+    min-height: 8px;
+}
+
+window.theme-light .exam-bar-container {
+    background: rgba(0, 0, 0, 0.07);
+}
+
+/* 📈 Sınav Başarı ve Ortalama Özet Kartları */
+.exam-summary-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 24px;
+    padding: 16px 20px;
+}
+
+window.theme-light .exam-summary-card {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.exam-stat-pill {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    padding: 12px 16px;
+}
+
+window.theme-light .exam-stat-pill {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* 📈 KPI & Gelişmiş Sınav Analitik Kartları */
+.kpi-tile {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 18px;
+    padding: 12px 14px;
+}
+
+window.theme-light .kpi-tile {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.kpi-title {
+    font-size: 0.74rem;
+    font-weight: 700;
+    opacity: 0.72;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.kpi-value {
+    font-size: 1.35rem;
+    font-weight: 800;
+}
+
+.kpi-detail {
+    font-size: 0.75rem;
+    opacity: 0.70;
+}
+
+/* 📊 Ders İlerleme Çubuğu & Rozetler */
+progressbar.exam-progress trough {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    min-height: 9px;
+}
+
+window.theme-light progressbar.exam-progress trough {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+progressbar.exam-progress progress {
+    background: #3b82f6;
+    border-radius: 9999px;
+    min-height: 9px;
+}
+
+progressbar.exam-progress.success progress {
+    background: #10b981;
+}
+
+progressbar.exam-progress.warning progress {
+    background: #f59e0b;
+}
+
+.exam-chart-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 24px;
+    padding: 18px 20px;
+}
+
+window.theme-light .exam-chart-card {
+    background: rgba(255, 255, 255, 0.90);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.timeline-step-chip {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 14px;
+    padding: 8px 14px;
+}
+
+window.theme-light .timeline-step-chip {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.badge-success {
+    background-color: rgba(46, 194, 126, 0.20);
+    color: #2ec27e;
+    border: 1px solid rgba(46, 194, 126, 0.35);
+    border-radius: 9999px;
+    padding: 3px 10px;
+    font-size: 0.80em;
+    font-weight: 700;
+}
+
+.badge-danger {
+    background-color: rgba(246, 97, 81, 0.20);
+    color: #f66151;
+    border: 1px solid rgba(246, 97, 81, 0.35);
+    border-radius: 9999px;
+    padding: 3px 10px;
+    font-size: 0.80em;
+    font-weight: 700;
+}
+
+/* 📝 Ödev Açıklama Kutusu & Ek Dosyalar */
+.homework-desc-box {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+window.theme-light .homework-desc-box {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.homework-attach-chip {
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: 10px;
+    padding: 5px 12px;
+    color: #60a5fa;
+    font-size: 0.84rem;
+    font-weight: 600;
+}
+
+window.theme-light .homework-attach-chip {
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.22);
+    color: #1d4ed8;
+}
+
+.homework-answer-chip {
+    background: rgba(16, 185, 129, 0.14);
+    border: 1px solid rgba(16, 185, 129, 0.30);
+    border-radius: 10px;
+    padding: 5px 12px;
+    color: #34d399;
+    font-size: 0.84rem;
+    font-weight: 600;
+}
+
+window.theme-light .homework-answer-chip {
+    background: rgba(5, 150, 105, 0.08);
+    border: 1px solid rgba(5, 150, 105, 0.22);
+    color: #047857;
+}
+
+.homework-note-box {
+    background: rgba(245, 158, 11, 0.10);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 10px;
+    padding: 6px 12px;
+    color: #fbbf24;
+    font-size: 0.84rem;
+}
+
+window.theme-light .homework-note-box {
+    background: rgba(217, 119, 6, 0.08);
+    border: 1px solid rgba(217, 119, 6, 0.20);
+    color: #b45309;
+}
+
+

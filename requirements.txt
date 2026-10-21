@@ -1,0 +1,10 @@
+# GTK4 ve Libadwaita sistem paketleri olarak kurulmalıdır (bkz. README)
+PyGObject>=3.50
+requests>=2.31
+urllib3<2
+beautifulsoup4>=4.12
+keyring>=25
+pypdf>=4.0
+Flask>=3.0
+# İsteğe bağlı: AI asistanı (GEMINI_API_KEY gerekir)
+google-genai>=1.0
