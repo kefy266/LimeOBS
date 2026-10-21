@@ -24,7 +24,6 @@
 * 📚 **Ödevler & Ek Dosyalar:** Teslim durumları, öğretmen notları ve ekli ödev dosyalarını tek tıkla indirme.
 * 📊 **Devamsızlık & Sınavlar:** Ayrıntılı devamsızlık saatleri, karne ve sınav notları takibi.
 * 📑 **Dahili PDF Görüntüleyici:** Ödev veya mesaj eklerindeki PDF dosyalarını harici bir programa ihtiyaç duymadan uygulama içinde sayfa gezinmeli ve zoom destekli okuma.
-* 🔔 **Uygulama Kapalıyken Arka Plan Bildirimleri:** `systemd` kullanıcı servisi ve `notification_daemon.py` sayesinde LimeOBS kapalı olsa dahi yeni ödev, mesaj veya duyuru geldiğinde masaüstü bildirimi alma.
 * 🍲 **Yemekhane Menüsü:** Günün yemek listesi ve kalori bilgileri.
 * 🏫 **Çoklu Okul / Sunucu Desteği:** Tedem Koleji ve Akbim altyapısını kullanan tüm okulların OBS sunucu adresleriyle uyumlu.
 
