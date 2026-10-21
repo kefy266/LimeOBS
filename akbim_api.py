@@ -1,11 +1,9 @@
-from flask import Flask, render_template, request, jsonify
 from bs4 import BeautifulSoup
 import requests
 import json
 import os
 import pickle
 
-app = Flask(__name__)
 
 BASEURL = "https://tedemkolejiobs.com"
 

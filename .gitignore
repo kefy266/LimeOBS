@@ -31,3 +31,6 @@ __MACOSX/
 
 # PyInstaller tarafından build_appimage.sh ile üretilir (mutlak yol içerir)
 *.spec
+
+# Derlenmiş dosyalar (Actions ile üretilir, depoya girmez)
+website/downloads/

@@ -94,7 +94,19 @@ kbd{font-family:"Geist Mono",monospace;font-size:12px;padding:1px 6px;border:1px
 .checks li::before{content:"";flex:none;width:16px;height:16px;margin-top:2px;border-radius:50%;background:var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='%233fae3a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat}
 
 /* install */
-.tabs{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:36px}
+.tabs{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:16px}
+.dl{margin-top:40px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.dl-card{display:flex;align-items:center;gap:14px;padding:18px 20px;border:1px solid var(--line);border-radius:12px;background:var(--surface);transition:border-color .15s,transform .15s}
+.dl-card:hover{border-color:var(--faint);transform:translateY(-1px)}
+.dl-card svg{width:22px;height:22px;flex:none;fill:currentColor}
+.dl-card div{flex:1;min-width:0}
+.dl-card b{display:block;font-weight:600;font-size:15px}
+.dl-card span{display:block;font-size:13px;color:var(--muted)}
+.dl-card i{font-style:normal;width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:var(--bg);color:var(--muted);transition:.15s}
+.dl-card:hover i{background:var(--text);color:var(--bg)}
+.dl-card.me{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.h3{font-size:15px;font-weight:600;margin-top:48px}
+@media (max-width:820px){.dl{grid-template-columns:1fr}}
 .tabs button{border:0;background:none;font:inherit;font-size:13px;color:var(--muted);padding:7px 16px;border-radius:7px;cursor:pointer}
 .tabs button.on{background:var(--bg);color:var(--text);font-weight:500;box-shadow:0 0 0 1px var(--line)}
 .code{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:20px 22px;font-size:13.5px;line-height:1.9;overflow-x:auto}
@@ -129,8 +141,8 @@ footer p.disc{margin-top:20px;color:var(--faint);max-width:640px;font-size:12px}
   <div class="nav-r">
     <a href="#ozellikler">Özellikler</a>
     <a href="#gizlilik">Gizlilik</a>
-    <a href="#kurulum">Kurulum</a>
-    <a class="btn btn-dark" href="https://github.com/kefy266/LimeOBS/releases/latest">İndir</a>
+    <a href="#indir">İndir</a>
+    <a class="btn btn-dark" href="#indir">İndir</a>
   </div>
 </div></nav>
 
@@ -139,7 +151,7 @@ footer p.disc{margin-top:20px;color:var(--faint);max-width:640px;font-size:12px}
   <h1>Okul hayatın, <em>tek pencerede.</em></h1>
   <p class="lead">Akbim OBS için sade ve hızlı bir masaüstü uygulaması. Ders programı, ödevler, sınavlar ve mesajlar, tarayıcı sekmeleri olmadan.</p>
   <div class="cta">
-    <a class="btn btn-dark" href="#kurulum">Hemen başla</a>
+    <a class="btn btn-dark" id="hero-dl" href="#indir">İndir</a>
     <a class="btn btn-line" href="#ozellikler">Özellikler</a>
   </div>
 
@@ -198,17 +210,32 @@ footer p.disc{margin-top:20px;color:var(--faint);max-width:640px;font-size:12px}
   </ul>
 </section>
 
-<section id="kurulum" class="wrap">
-  <div class="eyebrow">Kurulum</div>
+<section id="indir" class="wrap">
+  <div class="eyebrow">İndir</div>
   <h2>Birkaç dakikada hazır.</h2>
-  <p class="sub">Hazır derlenmiş sürümleri <a href="https://github.com/kefy266/LimeOBS/releases/latest" style="color:var(--accent)">GitHub Releases</a> sayfasından indir.</p>
+  <p class="sub">Kurulum yok, bağımlılık yok. Sistemine uygun dosyayı indir ve aç.</p>
+  <div class="dl">
+    <a class="dl-card" data-os="win" href="downloads/LimeOBS.exe" download>
+      <svg viewBox="0 0 24 24"><path d="M3 5.5 10.5 4.4v7.1H3zM11.5 4.3 21 3v8.5h-9.5zM3 12.5h7.5v7.1L3 18.5zM11.5 12.5H21V21l-9.5-1.3z"/></svg>
+      <div><b>Windows</b><span>LimeOBS.exe · 47 MB</span></div><i>↓</i>
+    </a>
+    <a class="dl-card" data-os="mac" href="downloads/LimeOBS-macOS-arm64.zip" download>
+      <svg viewBox="0 0 24 24"><path d="M16.4 12.6c0-2.4 2-3.5 2.1-3.6-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.5-.9-2.5-4zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/></svg>
+      <div><b>macOS</b><span>Apple Silicon · 34 MB</span></div><i>↓</i>
+    </a>
+    <a class="dl-card" data-os="linux" href="downloads/LimeOBS-x86_64.AppImage" download>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-2.2 0-3.5 1.8-3.5 4.2 0 1.6-.3 2.6-1.4 4-1.3 1.6-2.6 3.8-2.6 6.1 0 .8.4 1.4 1.1 1.7M12 3c2.2 0 3.5 1.8 3.5 4.2 0 1.6.3 2.6 1.4 4 1.3 1.6 2.6 3.8 2.6 6.1 0 .8-.4 1.4-1.1 1.7M8 20.5c1.2.7 2.5 1 4 1s2.8-.3 4-1"/><circle cx="10.5" cy="7.5" r=".6" fill="currentColor"/><circle cx="13.5" cy="7.5" r=".6" fill="currentColor"/></svg>
+      <div><b>Linux</b><span>AppImage · 54 MB</span></div><i>↓</i>
+    </a>
+  </div>
+  <h3 class="h3">Kurulum notları</h3>
   <div class="tabs" role="tablist">
     <button class="on" data-t="linux">Linux</button>
     <button data-t="mac">macOS</button>
     <button data-t="win">Windows</button>
   </div>
   <div class="code mono">
-    <div class="pane on" id="linux"><div class="c"># Releases sayfasından AppImage'ı indir</div><div><span class="p">$ </span>chmod +x LimeOBS-x86_64.AppImage</div><div><span class="p">$ </span>./LimeOBS-x86_64.AppImage</div></div>
+    <div class="pane on" id="linux"><div class="c"># İndirdiğin AppImage'ı çalıştırılabilir yap ve aç</div><div><span class="p">$ </span>chmod +x LimeOBS-x86_64.AppImage</div><div><span class="p">$ </span>./LimeOBS-x86_64.AppImage</div></div>
     <div class="pane" id="mac"><div class="c"># LimeOBS-macOS.zip'i aç, uygulamayı Programlar'a taşı</div><div class="c"># İmzasız olduğu için ilk açılışta:</div><div><span class="p">$ </span>xattr -cr /Applications/LimeOBS.app</div></div>
     <div class="pane" id="win"><div class="c"># LimeOBS.exe'yi indir ve çift tıkla, kurulum gerekmez</div><div class="c"># SmartScreen uyarısında: Ek bilgi → Yine de çalıştır</div></div>
   </div>
@@ -223,6 +250,12 @@ footer p.disc{margin-top:20px;color:var(--faint);max-width:640px;font-size:12px}
 </div></footer>
 
 <script>
+// ziyaretçinin sistemini tahmin edip ilgili kartı ve sekmeyi öne çıkar
+(()=>{const u=navigator.userAgent;const os=/Windows/i.test(u)?'win':/Mac/i.test(u)?'mac':/Linux|X11/i.test(u)?'linux':null;
+if(!os)return;const c=document.querySelector('.dl-card[data-os="'+os+'"]');c.classList.add('me');
+const h=document.getElementById('hero-dl');h.href=c.getAttribute('href');h.setAttribute('download','');
+h.textContent={win:'Windows için indir',mac:'macOS için indir',linux:'Linux için indir'}[os];
+const t=document.querySelector('.tabs button[data-t="'+os+'"]');if(t)setTimeout(()=>t.click());})();
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tabs button,.pane').forEach(x=>x.classList.remove('on'));
   b.classList.add('on');document.getElementById(b.dataset.t).classList.add('on');
