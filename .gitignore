@@ -4,6 +4,9 @@ akbim_session.pkl
 *.pkl
 lime_daemon_state.json
 .env
+gtk_debug.log
+scratch_*.py
+akbim_frontend/scratch_*.py
 
 # Python
 __pycache__/
@@ -15,9 +18,13 @@ venv/
 build/
 dist/
 dist_appimage/
+LimeOBS_Windows_Portable/
 *.AppImage
 *.zip
 tools/
+akbim_qt/
+limeobs_qt.spec
+limeobs_windows.spec
 
 # Yedekler ve kişisel notlar
 backups/

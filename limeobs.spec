@@ -41,10 +41,11 @@ pyz = PYZ(a.pure)
 
 if IS_WIN:
     # Windows: tek dosyalık LimeOBS.exe
+    win_icon = str(ROOT / "akbim_frontend" / "app_icon.ico") if (ROOT / "akbim_frontend" / "app_icon.ico").exists() else str(ROOT / "akbim_frontend" / "app_icon.png")
     exe = EXE(
         pyz, a.scripts, a.binaries, a.datas, [],
         name="LimeOBS",
-        icon=str(ROOT / "akbim_frontend" / "app_icon.png"),
+        icon=win_icon,
         console=False,
         upx=False,
     )

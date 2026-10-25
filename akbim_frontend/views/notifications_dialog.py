@@ -59,7 +59,7 @@ def show_notifications_popover(parent_button, on_navigate_tab=None):
                 empty_row = Adw.ActionRow()
                 empty_row.set_title("Yeni bir bildiriminiz bulunmuyor")
                 empty_row.set_subtitle("Tüm ödev ve okul duyuruları güncel.")
-                empty_row.set_icon_name("notifications-symbolic")
+                empty_row.set_icon_name("alarm-symbolic")
                 list_box.append(empty_row)
                 return
 
@@ -74,7 +74,7 @@ def show_notifications_popover(parent_button, on_navigate_tab=None):
 
                 row.set_title(t)
                 row.set_subtitle(f"{type_desc}  •  {c_date} {c_time}")
-                row.set_icon_name("alarm-symbolic" if m_type == 2 else "notifications-symbolic")
+                row.set_icon_name("alarm-symbolic" if m_type == 2 else "alarm-symbolic")
                 row.set_activatable(True)
 
                 if on_navigate_tab:

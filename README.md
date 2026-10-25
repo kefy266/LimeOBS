@@ -24,6 +24,7 @@
 * 📚 **Ödevler & Ek Dosyalar:** Teslim durumları, öğretmen notları ve ekli ödev dosyalarını tek tıkla indirme.
 * 📊 **Devamsızlık & Sınavlar:** Ayrıntılı devamsızlık saatleri, karne ve sınav notları takibi.
 * 📑 **Dahili PDF Görüntüleyici:** Ödev veya mesaj eklerindeki PDF dosyalarını harici bir programa ihtiyaç duymadan uygulama içinde sayfa gezinmeli ve zoom destekli okuma.
+* 🔔 **Uygulama Kapalıyken Arka Plan Bildirimleri:** `systemd` kullanıcı servisi ve `notification_daemon.py` sayesinde LimeOBS kapalı olsa dahi yeni ödev, mesaj veya duyuru geldiğinde masaüstü bildirimi alma.
 * 🍲 **Yemekhane Menüsü:** Günün yemek listesi ve kalori bilgileri.
 * 🏫 **Çoklu Okul / Sunucu Desteği:** Tedem Koleji ve Akbim altyapısını kullanan tüm okulların OBS sunucu adresleriyle uyumlu.
 
@@ -33,16 +34,12 @@
 
 ### Gereksinimler
 * **Linux:** Python 3.10+, GTK4, Libadwaita (`libadwaita-1`)
-* Python Paketleri: `requirements.txt` içinde (`PyGObject`, `requests`, `beautifulsoup4`, `keyring`, `pypdf` …)
+* Python Paketleri: `PyGObject`, `requests`, `beautifulsoup4`, `flask`
 
 ### Kaynak Koddan Çalıştırma
 ```bash
 # Bağımlılıkları yükleyin
-python -m venv venv
-./venv/bin/pip install -r requirements.txt
-
-# Örnek ayar dosyasını kopyalayın
-cp akbim_config.example.json akbim_config.json
+./venv/bin/pip install -r requirements.txt # (veya sistem python ile)
 
 # Uygulamayı başlatın
 python akbim_frontend/main.py
@@ -87,21 +84,22 @@ macOS üzerinde LimeOBS'u çalıştırmak için:
 * macOS için `Command + K` (⌘K) hızlı komut paleti, AppleScript yerel bildirimleri ve yerel PDF açıcı entegredir.
 * macOS uygulama simgesi: `akbim_frontend/app_icon.icns`
 
-### 4. Windows (10 / 11)
-Windows üzerinde LimeOBS'u çalıştırmak için:
-1. `setup_windows.bat` veya PowerShell ile `setup_windows.ps1` dosyasını çift tıklayarak çalıştırın.
-2. Windows için yerel Toast bildirimleri (PowerShell / Action Center), `os.startfile` yerel PDF/dosya açıcı ve `Ctrl + K` komut paleti tam uyumludur.
-3. Windows simgesi: `akbim_frontend/app_icon.ico`
-4. Bağımsız `.exe` oluşturmak için:
-   ```cmd
-   pyinstaller --noconfirm --onedir --windowed --name LimeOBS --icon akbim_frontend/app_icon.ico akbim_frontend/main.py
-   ```
+### 4. Windows (10 / 11) — Yerel GTK4 & Libadwaita
+Windows üzerinde yerel GTK4 ve Libadwaita performansı:
+1. **Çalıştırma:**
+   * Masaüstü kısayoluna veya ana dizindeki `LimeOBS_Baslat.bat` başlatıcısına çift tıklayın.
+2. **Özellikler & Yerel Uyumluluk:**
+   * **GTK4 & Libadwaita Yerel Motor:** MSYS2 UCRT64 yerel C çalışma zamanı ile piksel-mükemmel DirectWrite/Cairo çizimi.
+   * **ClearType & Segoe UI:** Windows yerel Segoe UI Variable yazı tipleri ve subpixel ClearType optimizasyonu.
+   * **Adwaita Vektörel İkonlar:** Eksiksiz yerel sembolik ikon seti.
+   * **Win32 Entegrasyonu:** Windows Shell `AppUserModelID` ve yerel pencere simgesi (`app_icon.ico`).
+3. **Detaylı Bilgi:**
+   * Windows mimarisi ve yapılandırma ayrıntıları için `WINDOWS_BILGILERI.md` belgesine göz atabilirsiniz.
 
 ---
 
 ## 🔒 Gizlilik ve Güvenlik
-* LimeOBS hiçbir verinizi üçüncü şahıslara veya harici sunuculara göndermez.
-* Tüm istekler doğrudan okulunuzun resmi OBS sunucusuna şifreli (HTTPS) olarak iletilir.
+* **Açık Metin Şifre Saklanmaz:** Kimlik bilgileri Windows üzerinde **DPAPI (`CryptProtectData`)**, Linux üzerinde **GNOME Keyring / Secret Service**, macOS üzerinde **Apple Keychain** ile donanım ve oturuma kilitli olarak saklanır.
+* **HMAC-SHA256 Bütünlük Koruması:** Konfigürasyon kasası kriptografik imza ile kurcalanmaya karşı korunur.
+* **Doğrudan Bağlantı:** LimeOBS hiçbir verinizi üçüncü şahıslara veya harici sunuculara göndermez. Tüm istekler doğrudan okulunuzun resmi OBS sunucusuna şifreli (HTTPS) olarak iletilir.
 * Oturum çerezleri yalnızca yerel cihazınızda (`akbim_session.pkl`) saklanır.
-* "Beni Hatırla" seçildiğinde TC ve şifre düz metin olarak değil, işletim sisteminin anahtarlığında (GNOME Keyring / KWallet, macOS Keychain, Windows Credential Manager) `keyring` ile saklanır.
-* `akbim_config.json`, `*.pkl` ve bildirim durumu dosyaları `.gitignore` ile depodan hariç tutulur; asla commit etmeyin.

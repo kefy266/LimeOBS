@@ -48,12 +48,12 @@ class HomeView(Gtk.ScrolledWindow):
         self.header_text_box.set_valign(Gtk.Align.CENTER)
 
         self.greeting_label = Gtk.Label()
-        self.greeting_label.set_markup("<span size='xx-large' weight='800'>Merhaba</span>")
+        self.greeting_label.set_markup("<span size='xx-large' weight='bold'>Merhaba</span>")
         self.greeting_label.set_halign(Gtk.Align.START)
         self.header_text_box.append(self.greeting_label)
 
         self.subtitle_label = Gtk.Label()
-        self.subtitle_label.set_markup("<span size='medium' weight='500' alpha='85%'>Bugün okulda neler var?</span>")
+        self.subtitle_label.set_markup("<span size='medium' weight='500' foreground='#d0d0d0'>Bugün okulda neler var?</span>")
         self.subtitle_label.set_halign(Gtk.Align.START)
         self.header_text_box.append(self.subtitle_label)
 
@@ -98,8 +98,8 @@ class HomeView(Gtk.ScrolledWindow):
         """Hesap değiştiğinde HomeView önbelleğini ve arayüzünü sıfırlar."""
         self._cached_index_data = None
         self._cached_exams = None
-        self.greeting_label.set_markup("<span size='xx-large' weight='800'>Merhaba</span>")
-        self.subtitle_label.set_markup("<span size='medium' weight='500' alpha='85%'>Yükleniyor...</span>")
+        self.greeting_label.set_markup("<span size='xx-large' weight='bold'>Merhaba</span>")
+        self.subtitle_label.set_markup("<span size='medium' weight='500' foreground='#d0d0d0'>Yükleniyor...</span>")
         self.date_label.set_text("")
         self.avatar.set_text("K")
         self.avatar.set_custom_image(None)
@@ -158,7 +158,7 @@ class HomeView(Gtk.ScrolledWindow):
         else:
             self.avatar.set_custom_image(None)
 
-        self.greeting_label.set_markup(f"<span size='xx-large' weight='800'>Merhaba {first_name}</span>")
+        self.greeting_label.set_markup(f"<span size='xx-large' weight='bold'>Merhaba {first_name}</span>")
         
         # Gün ve Durum Mesajı
         weekday = now.weekday()  # 0: Pzt .. 6: Paz
@@ -181,9 +181,11 @@ class HomeView(Gtk.ScrolledWindow):
         else:
             status_text = "Bu hafta bitti, haftaya hazırlan!"
 
-        self.subtitle_label.set_markup(f"<span size='medium' weight='500' alpha='85%'>{status_text}</span>")
-        formatted_date = now.strftime("%d %B %Y %A")
-        self.date_label.set_markup(f"<span size='small' alpha='65%'>{formatted_date}</span>")
+        self.subtitle_label.set_markup(f"<span size='medium' weight='500' foreground='#d0d0d0'>{status_text}</span>")
+        months_tr = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+        days_tr = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+        formatted_date = f"{now.day} {months_tr[now.month - 1]} {now.year} {days_tr[now.weekday()]}"
+        self.date_label.set_markup(f"<span size='small' foreground='#a8a8a8'>{formatted_date}</span>")
 
         sched_data = index_data.get("data", {}).get("lessonSchedule", {}).get("data", {})
         x_info = sched_data.get("xInfo", [])
@@ -255,23 +257,23 @@ class HomeView(Gtk.ScrolledWindow):
         food_card.set_hexpand(True)
 
         food_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        food_icon = Gtk.Label()
-        food_icon.set_markup("<span alpha='75%'>🍴</span>")
+        food_icon = Gtk.Image.new_from_icon_name("emoji-food-symbolic")
+        food_icon.set_pixel_size(18)
         food_title = Gtk.Label()
-        food_title.set_markup(f"<span weight='600' alpha='85%'>{card_header_title}</span>")
+        food_title.set_markup(f"<span weight='600' foreground='#d0d0d0'>{card_header_title}</span>")
         food_header.append(food_icon)
         food_header.append(food_title)
         food_card.append(food_header)
 
         dish_label = Gtk.Label()
-        dish_label.set_markup(f"<span size='large' weight='800'>{main_dish}</span>")
+        dish_label.set_markup(f"<span size='large' weight='bold'>{GLib.markup_escape_text(main_dish)}</span>")
         dish_label.set_halign(Gtk.Align.START)
         dish_label.set_margin_top(6)
         dish_label.set_wrap(True)
         food_card.append(dish_label)
 
         sub_food_label = Gtk.Label()
-        sub_food_label.set_markup(f"<span size='small' alpha='60%'>{next_menu_desc}</span>")
+        sub_food_label.set_markup(f"<span size='small' foreground='#a8a8a8'>{GLib.markup_escape_text(next_menu_desc)}</span>")
         sub_food_label.set_halign(Gtk.Align.START)
         food_card.append(sub_food_label)
 
@@ -307,23 +309,23 @@ class HomeView(Gtk.ScrolledWindow):
         hw_card.set_hexpand(True)
 
         hw_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        hw_icon = Gtk.Label()
-        hw_icon.set_markup("<span alpha='75%'>📚</span>")
+        hw_icon = Gtk.Image.new_from_icon_name("x-office-document-symbolic")
+        hw_icon.set_pixel_size(18)
         hw_title = Gtk.Label()
-        hw_title.set_markup("<span weight='600' alpha='85%'>Aktif Ödevler</span>")
+        hw_title.set_markup("<span weight='600' foreground='#d0d0d0'>Aktif Ödevler</span>")
         hw_header.append(hw_icon)
         hw_header.append(hw_title)
         hw_card.append(hw_header)
 
         hw_count_label = Gtk.Label()
-        hw_count_label.set_markup(f"<span size='xx-large' weight='800'>{active_hw_count}</span>")
+        hw_count_label.set_markup(f"<span size='xx-large' weight='bold'>{active_hw_count}</span>")
         hw_count_label.set_halign(Gtk.Align.START)
         hw_count_label.set_margin_top(4)
         hw_card.append(hw_count_label)
 
         hw_sub_label = Gtk.Label()
         sub_text = f"aktif ödev (toplam {total_hw_count})" if total_hw_count else "aktif ödev"
-        hw_sub_label.set_markup(f"<span size='small' alpha='60%'>{sub_text}</span>")
+        hw_sub_label.set_markup(f"<span size='small' foreground='#a8a8a8'>{sub_text}</span>")
         hw_sub_label.set_halign(Gtk.Align.START)
         hw_card.append(hw_sub_label)
 
@@ -387,27 +389,28 @@ class HomeView(Gtk.ScrolledWindow):
             row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
             row_box.add_css_class("lesson-schedule-line")
 
-            circle_lbl = Gtk.Label(label="○")
-            circle_lbl.add_css_class("lesson-circle-icon")
-            row_box.append(circle_lbl)
+            circle_dot = Gtk.Box()
+            circle_dot.add_css_class("lesson-circle-dot")
+            circle_dot.set_valign(Gtk.Align.CENTER)
+            row_box.append(circle_dot)
 
             info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             info_box.set_hexpand(True)
 
             sub_lbl = Gtk.Label()
-            sub_lbl.set_markup(f"<span weight='700'>{subject_str}</span>")
+            sub_lbl.set_markup(f"<span weight='600'>{GLib.markup_escape_text(subject_str)}</span>")
             sub_lbl.set_halign(Gtk.Align.START)
             info_box.append(sub_lbl)
 
             tea_lbl = Gtk.Label()
-            tea_lbl.set_markup(f"<span size='small' alpha='65%'>{teacher_str}</span>")
+            tea_lbl.set_markup(f"<span size='small' foreground='#a8a8a8'>{GLib.markup_escape_text(teacher_str)}</span>")
             tea_lbl.set_halign(Gtk.Align.START)
             info_box.append(tea_lbl)
 
             row_box.append(info_box)
 
             time_lbl = Gtk.Label()
-            time_lbl.set_markup(f"<span size='small' alpha='75%'>{slot_fmt}</span>")
+            time_lbl.set_markup(f"<span size='small' foreground='#b8b8b8'>{slot_fmt}</span>")
             time_lbl.set_halign(Gtk.Align.END)
             row_box.append(time_lbl)
 
@@ -504,8 +507,9 @@ class HomeView(Gtk.ScrolledWindow):
         if state_type == "in_break":
             banner.add_css_class("live-status-break")
 
-        icon_lbl = Gtk.Label()
-        icon_lbl.set_markup("<span size='x-large'>🔔</span>" if state_type == "in_break" else "<span size='x-large'>⏳</span>")
+        icon_name = "alarm-symbolic" if state_type == "in_break" else "appointment-soon-symbolic"
+        icon_lbl = Gtk.Image.new_from_icon_name(icon_name)
+        icon_lbl.set_pixel_size(24)
         banner.append(icon_lbl)
 
         txt_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -517,14 +521,14 @@ class HomeView(Gtk.ScrolledWindow):
         desc_lbl.set_halign(Gtk.Align.START)
 
         if state_type == "in_lesson":
-            title_lbl.set_markup(f"<span weight='800' size='medium'>Şu Anda Canlı Ders: {cur_lesson}</span>")
-            desc_lbl.set_markup(f"<span size='small' alpha='80%'>Teneffüse <b>{minutes_left} dakika</b> kaldı</span>")
+            title_lbl.set_markup(f"<span weight='bold' size='medium'>Şu Anda Canlı Ders: {cur_lesson}</span>")
+            desc_lbl.set_markup(f"<span size='small' foreground='#d0d0d0'>Teneffüse <b>{minutes_left} dakika</b> kaldı</span>")
         elif state_type == "in_break":
-            title_lbl.set_markup("<span weight='800' size='medium'>Şu Anda Teneffüstesin</span>")
-            desc_lbl.set_markup(f"<span size='small' alpha='80%'>Sonraki ders: <b>{next_lesson}</b> ({minutes_left} dk sonra başlayacak)</span>")
+            title_lbl.set_markup("<span weight='bold' size='medium'>Şu Anda Teneffüstesin</span>")
+            desc_lbl.set_markup(f"<span size='small' foreground='#d0d0d0'>Sonraki ders: <b>{next_lesson}</b> ({minutes_left} dk sonra başlayacak)</span>")
         elif state_type == "before_school":
-            title_lbl.set_markup("<span weight='800' size='medium'>Derslerin Başlamasına Az Kaldı</span>")
-            desc_lbl.set_markup(f"<span size='small' alpha='80%'>İlk ders: <b>{next_lesson}</b> ({minutes_left} dakika kaldı)</span>")
+            title_lbl.set_markup("<span weight='bold' size='medium'>Derslerin Başlamasına Az Kaldı</span>")
+            desc_lbl.set_markup(f"<span size='small' foreground='#d0d0d0'>İlk ders: <b>{next_lesson}</b> ({minutes_left} dakika kaldı)</span>")
 
         txt_box.append(title_lbl)
         txt_box.append(desc_lbl)
@@ -533,7 +537,7 @@ class HomeView(Gtk.ScrolledWindow):
         badge_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         badge_box.set_valign(Gtk.Align.CENTER)
         countdown_badge = Gtk.Label()
-        countdown_badge.set_markup(f"<span weight='800' size='medium'>{minutes_left} dk</span>")
+        countdown_badge.set_markup(f"<span weight='bold' size='medium'>{minutes_left} dk</span>")
         countdown_badge.add_css_class("badge-active")
         badge_box.append(countdown_badge)
         banner.append(badge_box)
@@ -586,19 +590,19 @@ class HomeView(Gtk.ScrolledWindow):
         card.add_css_class("bag-reminder-card")
 
         top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        icon_lbl = Gtk.Label()
-        icon_lbl.set_markup("<span size='large'>🎒</span>")
+        icon_lbl = Gtk.Image.new_from_icon_name("user-home-symbolic")
+        icon_lbl.set_pixel_size(20)
         top_row.append(icon_lbl)
 
         title_lbl = Gtk.Label()
-        title_lbl.set_markup(f"<span weight='800' size='medium'>Çantanı Hazırla: {target_day_name} Hangi Kitaplar Lazım?</span>")
+        title_lbl.set_markup(f"<span weight='bold' size='medium'>Çantanı Hazırla: {target_day_name} Hangi Kitaplar Lazım?</span>")
         title_lbl.set_halign(Gtk.Align.START)
         title_lbl.set_hexpand(True)
         top_row.append(title_lbl)
         card.append(top_row)
 
         desc_lbl = Gtk.Label()
-        desc_lbl.set_markup(f"<span size='small' alpha='85%'>{target_day_name} programında olan dersler için kitap ve defterlerini unutma:</span>")
+        desc_lbl.set_markup(f"<span size='small' foreground='#d0d0d0'>{target_day_name} programında olan dersler için kitap ve defterlerini unutma:</span>")
         desc_lbl.set_halign(Gtk.Align.START)
         card.append(desc_lbl)
 
@@ -627,8 +631,8 @@ class HomeView(Gtk.ScrolledWindow):
         exam_card.add_css_class("gokturk-card")
 
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        header_icon = Gtk.Label()
-        header_icon.set_markup("<span alpha='85%'>📊</span>")
+        header_icon = Gtk.Image.new_from_icon_name("view-continuous-symbolic")
+        header_icon.set_pixel_size(18)
         header_lbl = Gtk.Label()
         header_lbl.set_markup("<span weight='700' size='medium'>Sınav Karnesi &amp; Başarı Gelişimi</span>")
         header_lbl.set_hexpand(True)
@@ -657,12 +661,12 @@ class HomeView(Gtk.ScrolledWindow):
             left_box.set_hexpand(True)
 
             name_lbl = Gtk.Label()
-            name_lbl.set_markup(f"<span weight='700'>{e_name}</span> <span size='small' alpha='65%'>({e_date})</span>")
+            name_lbl.set_markup(f"<span weight='700'>{e_name}</span> <span size='small' foreground='#a8a8a8'>({e_date})</span>")
             name_lbl.set_halign(Gtk.Align.START)
             left_box.append(name_lbl)
 
             stats_lbl = Gtk.Label()
-            stats_lbl.set_markup(f"<span size='small' alpha='75%'>Net: <b>{e_net:.2f}</b>   •   Doğru: {e_dogru}   •   Yanlış: {e_yanlis}</span>")
+            stats_lbl.set_markup(f"<span size='small' foreground='#b8b8b8'>Net: <b>{e_net:.2f}</b>   •   Doğru: {e_dogru}   •   Yanlış: {e_yanlis}</span>")
             stats_lbl.set_halign(Gtk.Align.START)
             left_box.append(stats_lbl)
 
@@ -674,12 +678,12 @@ class HomeView(Gtk.ScrolledWindow):
 
             point_str = f"{float(e_point):.2f}".replace(".", ",")
             point_lbl = Gtk.Label()
-            point_lbl.set_markup(f"<span size='xx-large' weight='800'>{point_str}</span>")
+            point_lbl.set_markup(f"<span size='xx-large' weight='bold'>{point_str}</span>")
             point_lbl.set_halign(Gtk.Align.END)
             right_box.append(point_lbl)
 
             point_sub = Gtk.Label()
-            point_sub.set_markup("<span size='small' alpha='60%'>Puan</span>")
+            point_sub.set_markup("<span size='small' foreground='#a8a8a8'>Puan</span>")
             point_sub.set_halign(Gtk.Align.END)
             right_box.append(point_sub)
 
@@ -691,7 +695,7 @@ class HomeView(Gtk.ScrolledWindow):
             chart_group.set_margin_top(8)
 
             chart_title = Gtk.Label()
-            chart_title.set_markup("<span size='small' weight='600' alpha='70%'>Sınav Net Gelişim Trendi:</span>")
+            chart_title.set_markup("<span size='small' weight='600' foreground='#b8b8b8'>Sınav Net Gelişim Trendi:</span>")
             chart_title.set_halign(Gtk.Align.START)
             chart_group.append(chart_title)
 

@@ -66,7 +66,7 @@ class AnnouncementsView(Gtk.ScrolledWindow):
             row = Adw.ActionRow()
             row.set_title("Aktif duyuru bulunmuyor.")
             row.set_subtitle("Okul yönetimi tarafından henüz yeni bir duyuru yayınlanmamış.")
-            row.set_icon_name("notifications-symbolic")
+            row.set_icon_name("alarm-symbolic")
             announcements_group.add(row)
         else:
             for a in announcements:
@@ -74,7 +74,7 @@ class AnnouncementsView(Gtk.ScrolledWindow):
                 ann_text = str(a)
                 row.set_title(ann_text[:80] + ("..." if len(ann_text) > 80 else ""))
                 row.set_subtitle("Detayı okumak için tıklayın")
-                row.set_icon_name("notifications-symbolic")
+                row.set_icon_name("alarm-symbolic")
                 row.set_activatable(True)
                 row.connect("activated", lambda _, text=ann_text: self.show_announcement_dialog("Okul Duyurusu", text))
                 announcements_group.add(row)

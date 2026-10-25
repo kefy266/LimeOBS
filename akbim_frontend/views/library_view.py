@@ -34,7 +34,7 @@ class LibraryView(Gtk.ScrolledWindow):
         title_box.append(title_lbl)
 
         sub_lbl = Gtk.Label()
-        sub_lbl.set_markup("<span size='small' alpha='70%'>Ödünç aldığınız kitaplar ve okul kitap kataloğu</span>")
+        sub_lbl.set_markup("<span size='small' foreground='#b8b8b8'>Ödünç aldığınız kitaplar ve okul kitap kataloğu</span>")
         sub_lbl.set_halign(Gtk.Align.START)
         title_box.append(sub_lbl)
 

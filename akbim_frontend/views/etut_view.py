@@ -41,7 +41,7 @@ class EtutView(Gtk.ScrolledWindow):
         title_box.append(title_lbl)
 
         sub_lbl = Gtk.Label()
-        sub_lbl.set_markup("<span size='small' alpha='65%'>Öğretmen etütleri, birebir çalışma programı ve istatistikleri</span>")
+        sub_lbl.set_markup("<span size='small' foreground='#a8a8a8'>Öğretmen etütleri, birebir çalışma programı ve istatistikleri</span>")
         sub_lbl.set_halign(Gtk.Align.START)
         title_box.append(sub_lbl)
         title_box.set_hexpand(True)
@@ -175,7 +175,7 @@ class EtutView(Gtk.ScrolledWindow):
             empty_row = Adw.ActionRow()
             empty_row.set_title("Kayıtlı etüt veya birebir dersiniz bulunmuyor")
             empty_row.set_subtitle("Aşağıdaki arama bölümünden öğretmenlerin müsait saatlerini inceleyebilirsiniz.")
-            empty_row.add_prefix(Gtk.Image.new_from_icon_name("info-symbolic"))
+            empty_row.add_prefix(Gtk.Image.new_from_icon_name("dialog-information-symbolic"))
             pref_group.add(empty_row)
         else:
             for item in all_mine:
@@ -218,12 +218,12 @@ class EtutView(Gtk.ScrolledWindow):
         box.append(icon)
 
         num_lbl = Gtk.Label()
-        num_lbl.set_markup(f"<span size='xx-large' weight='heavy' foreground='{color_hex}'>{count_str}</span>")
+        num_lbl.set_markup(f"<span size='xx-large' weight='bold' foreground='{color_hex}'>{count_str}</span>")
         num_lbl.set_halign(Gtk.Align.CENTER)
         box.append(num_lbl)
 
         txt_lbl = Gtk.Label()
-        txt_lbl.set_markup(f"<span size='small' alpha='75%'>{title}</span>")
+        txt_lbl.set_markup(f"<span size='small' foreground='#b8b8b8'>{title}</span>")
         txt_lbl.set_halign(Gtk.Align.CENTER)
         box.append(txt_lbl)
 

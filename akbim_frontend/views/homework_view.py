@@ -47,7 +47,7 @@ class HomeworkView(Gtk.ScrolledWindow):
         title_box.append(header_label)
 
         sub_label = Gtk.Label()
-        sub_label.set_markup("<span size='small' alpha='65%'>Öğretmen açıklamaları, ek belgeler ve teslim takvimi</span>")
+        sub_label.set_markup("<span size='small' foreground='#a8a8a8'>Öğretmen açıklamaları, ek belgeler ve teslim takvimi</span>")
         sub_label.set_halign(Gtk.Align.START)
         title_box.append(sub_label)
         title_box.set_hexpand(True)
@@ -292,7 +292,7 @@ class HomeworkView(Gtk.ScrolledWindow):
             else:
                 loading_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
                 loading_lbl = Gtk.Label()
-                loading_lbl.set_markup("<span size='small' alpha='60%'><i>Açıklama ve ek belgeler yükleniyor...</i></span>")
+                loading_lbl.set_markup("<span size='small' foreground='#a8a8a8'><i>Açıklama ve ek belgeler yükleniyor...</i></span>")
                 loading_lbl.set_halign(Gtk.Align.START)
                 loading_box.append(loading_lbl)
                 dynamic_box.append(loading_box)
@@ -304,13 +304,13 @@ class HomeworkView(Gtk.ScrolledWindow):
 
             if teacher:
                 tea_lbl = Gtk.Label()
-                tea_lbl.set_markup(f"<span size='small' alpha='75%'>👤 {teacher}</span>")
+                tea_lbl.set_markup(f"<span size='small' foreground='#b8b8b8'>👤 {teacher}</span>")
                 tea_lbl.set_halign(Gtk.Align.START)
                 meta_box.append(tea_lbl)
 
             if end_date:
                 date_lbl = Gtk.Label()
-                date_lbl.set_markup(f"<span size='small' alpha='65%'>📅 Son: {end_date}</span>")
+                date_lbl.set_markup(f"<span size='small' foreground='#a8a8a8'>📅 Son: {end_date}</span>")
                 date_lbl.set_halign(Gtk.Align.START)
                 meta_box.append(date_lbl)
 
@@ -369,7 +369,7 @@ class HomeworkView(Gtk.ScrolledWindow):
         # 1. Konu Başlığı (Varsa)
         if konu:
             konu_lbl = Gtk.Label()
-            konu_lbl.set_markup(f"<span size='small' weight='600' alpha='80%'>📌 Konu: {konu}</span>")
+            konu_lbl.set_markup(f"<span size='small' weight='600' foreground='#d0d0d0'>📌 Konu: {konu}</span>")
             konu_lbl.set_halign(Gtk.Align.START)
             container_box.append(konu_lbl)
 
@@ -383,7 +383,7 @@ class HomeworkView(Gtk.ScrolledWindow):
             d_icon.set_pixel_size(14)
             desc_hdr.append(d_icon)
             d_lbl_title = Gtk.Label()
-            d_lbl_title.set_markup("<span size='smaller' weight='700' alpha='75%'>ÖĞRETMEN AÇIKLAMASI</span>")
+            d_lbl_title.set_markup("<span size='small' weight='700' foreground='#b8b8b8'>ÖĞRETMEN AÇIKLAMASI</span>")
             d_lbl_title.set_halign(Gtk.Align.START)
             desc_hdr.append(d_lbl_title)
             desc_box.append(desc_hdr)
@@ -406,7 +406,7 @@ class HomeworkView(Gtk.ScrolledWindow):
             att_flow.set_margin_top(2)
 
             att_hdr_lbl = Gtk.Label()
-            att_hdr_lbl.set_markup("<span size='smaller' weight='700' alpha='75%'>EKLER:</span>")
+            att_hdr_lbl.set_markup("<span size='small' weight='700' foreground='#b8b8b8'>EKLER:</span>")
             att_flow.append(att_hdr_lbl)
 
             for f in attach_files:

@@ -331,7 +331,7 @@ class ExamReportWindow(Adw.Window):
 
             # Soru No
             num_lbl = Gtk.Label(label=f"Soru {q_num}")
-            num_lbl.set_markup(f"<span size='small' alpha='75%'>Soru {q_num}</span>")
+            num_lbl.set_markup(f"<span size='small' foreground='#b8b8b8'>Soru {q_num}</span>")
             card.append(num_lbl)
 
             # Cevap / Karşılaştırma Rozeti

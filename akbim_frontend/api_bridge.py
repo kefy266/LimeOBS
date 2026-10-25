@@ -5,6 +5,10 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import akbim_api
+try:
+    import security
+except ImportError:
+    from akbim_frontend import security
 
 import os
 import sys
@@ -40,7 +44,10 @@ akbim_api.session.headers.update({
 _CACHED_PHOTO_BYTES = None
 
 if getattr(sys, 'frozen', False):
-    CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "limeobs"
+    if sys.platform.startswith("win"):
+        CONFIG_DIR = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "LimeOBS"
+    else:
+        CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "limeobs"
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     CONFIG_FILE = CONFIG_DIR / "akbim_config.json"
 else:
@@ -80,72 +87,76 @@ def set_base_url(url):
     return clean_url
 
 
-KEYRING_SERVICE = "limeobs"
-KEYRING_USER = "saved_creds"
-
-
-def _read_config():
-    if CONFIG_FILE.exists():
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
-
-
-def _write_config(cfg):
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
-
-
-def _migrate_plaintext_credentials():
-    """Eski sürümlerin akbim_config.json'a düz metin yazdığı bilgileri keyring'e taşır."""
-    cfg = _read_config()
-    creds = cfg.pop("saved_creds", None)
-    if not creds:
-        return
-    try:
-        import keyring
-        keyring.set_password(KEYRING_SERVICE, KEYRING_USER, json.dumps(creds))
-        _write_config(cfg)
-    except Exception as e:
-        print(f"Kimlik bilgisi taşıma hatası: {e}")
-
-
 def save_credentials(tc, password):
-    """Beni Hatırla seçiliyse kimlik bilgilerini sistem anahtarlığına (keyring) kaydeder."""
+    """Beni Hatırla seçiliyse kimlik bilgilerini Windows DPAPI ve HMAC bütünlük kontrolüyle şifreleyerek kasaya kaydeder."""
     try:
-        import keyring
-        keyring.set_password(KEYRING_SERVICE, KEYRING_USER, json.dumps({"tc": tc, "password": password}))
+        cfg = {}
+        if CONFIG_FILE.exists():
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        
+        # Düz metin kimlik bilgilerini temizle
+        if "saved_creds" in cfg:
+            del cfg["saved_creds"]
+            
+        # Güvenli kriptografik kasa oluştur (DPAPI + HMAC-SHA256)
+        vault_payload = security.generate_vault_payload({"tc": tc, "password": password})
+        cfg["secure_vault"] = vault_payload
+        
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        print(f"Kimlik bilgisi kaydetme hatası (keyring kullanılamıyor): {e}")
+        print(f"[Güvenlik] Kimlik bilgisi kaydetme hatası: {e}")
 
 
 def get_saved_credentials():
-    """Kayıtlı kimlik bilgilerini sistem anahtarlığından döner."""
-    _migrate_plaintext_credentials()
-    try:
-        import keyring
-        raw = keyring.get_password(KEYRING_SERVICE, KEYRING_USER)
-        if raw:
-            return json.loads(raw)
-    except Exception:
-        pass
+    """Kayıtlı kimlik bilgilerini kriptografik kasadan çözer ve HMAC bütünlüğünü doğrular."""
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            
+            # Kriptografik Kasa (DPAPI + HMAC) kontrolü
+            if "secure_vault" in cfg:
+                creds = security.unpack_vault_payload(cfg["secure_vault"])
+                if creds:
+                    return creds
+                else:
+                    print("[Güvenlik Uyarısı] Kasa açılamadı veya HMAC doğrulaması başarısız oldu!")
+            
+            # Eski düz metin konfigürasyon varsa otomatik güvenli kasaya dönüştür (Migrate)
+            if "saved_creds" in cfg:
+                legacy = cfg.pop("saved_creds")
+                tc = legacy.get("tc")
+                pwd = legacy.get("password")
+                if tc and pwd:
+                    print("[Güvenlik] Eski düz metin kimlik bilgisi tespit edildi, DPAPI kasasına dönüştürülüyor...")
+                    cfg["secure_vault"] = security.generate_vault_payload({"tc": tc, "password": pwd})
+                    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                        json.dump(cfg, f, ensure_ascii=False, indent=2)
+                    return {"tc": tc, "password": pwd}
+        except Exception as e:
+            print(f"[Güvenlik] Kimlik bilgisi okuma hatası: {e}")
     return None
 
 
 def clear_saved_credentials():
-    """Oturum kapatıldığında kayıtlı bilgileri temizler."""
+    """Oturum kapatıldığında kayıtlı kasa, bilgiler ve Linux/macOS anahtarlığını temizler."""
     try:
-        cfg = _read_config()
-        if cfg.pop("saved_creds", None) is not None:
-            _write_config(cfg)
-    except Exception:
-        pass
-    try:
-        import keyring
-        keyring.delete_password(KEYRING_SERVICE, KEYRING_USER)
+        security.clear_system_keyring()
+        if CONFIG_FILE.exists():
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            changed = False
+            if "saved_creds" in cfg:
+                del cfg["saved_creds"]
+                changed = True
+            if "secure_vault" in cfg:
+                del cfg["secure_vault"]
+                changed = True
+            if changed:
+                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
 
@@ -359,7 +370,7 @@ def clear_cache():
 def clear_active_session(clear_saved_login=False):
     """
     Tüm aktif oturum çerezlerini, diskteki session dosyasını ve önbellekleri sıfırlar.
-    clear_saved_login=True verilirse kayıtlı TC/şifreyi de (keyring) siler.
+    clear_saved_login=True verilirse kayıtlı TC/şifreyi de (akbim_config.json) siler.
     """
     clear_cache()
     reset_session_expired_flag()
@@ -703,6 +714,32 @@ def get_adaptive_profile_data():
     else:
         if not profile_result["student_name"] and user_info.get("name"):
             profile_result["student_name"] = user_info["name"]
+
+    # 4. Normalize and populate all standard field variants from raw_fields
+    raw = profile_result.get("raw_fields", {})
+    for k, v in raw.items():
+        k_clean = str(k).lower().replace("ı", "i").replace("İ", "i").replace("ğ", "g").replace("ö", "o").replace("ü", "u").replace("ş", "s")
+        if "veli" in k_clean:
+            if not profile_result.get("parent_name"):
+                profile_result["parent_name"] = v
+        elif "isim" in k_clean or "ad" in k_clean:
+            if not profile_result.get("student_name"):
+                profile_result["student_name"] = v
+        elif "sinif" in k_clean:
+            if not profile_result.get("student_class"):
+                profile_result["student_class"] = v
+        elif "numara" in k_clean or "no" in k_clean:
+            if not profile_result.get("student_no"):
+                profile_result["student_no"] = v
+        elif "program" in k_clean:
+            if not profile_result.get("student_prog"):
+                profile_result["student_prog"] = v
+
+    # Common standard aliases for convenience
+    profile_result["name"] = profile_result.get("student_name") or "Öğrenci"
+    profile_result["class_code"] = profile_result.get("student_class") or ""
+    profile_result["class"] = profile_result.get("student_class") or ""
+    profile_result["student_no"] = profile_result.get("student_no") or ""
 
     # Fotoğrafı çek
     profile_result["photo_bytes"] = fetch_student_photo_bytes()
@@ -1051,7 +1088,7 @@ def fetch_events_data():
     return index_data.get("data", {}).get("eventList", []) or []
 
 
-def fetch_messages_data():
+def fetch_messages_data(box_type=None):
     """Gelen kutusu ve gönderilen postaları çeker (oturum düşerse otomatik yeniler)."""
     inbox_data = {}
     sent_data = {}
@@ -1079,6 +1116,12 @@ def fetch_messages_data():
     inbox_mails = inbox_data.get("data", {}).get("mail", []) if isinstance(inbox_data, dict) else []
     sent_mails = sent_data.get("data", {}).get("mail", []) if isinstance(sent_data, dict) else []
     counts = inbox_data.get("data", {}).get("count", {}) if isinstance(inbox_data, dict) else {}
+
+    if box_type in ("inbox", "gelen"):
+        return inbox_mails
+    elif box_type in ("sent", "outbox", "giden"):
+        return sent_mails
+
     return inbox_mails, sent_mails, counts
 
 
@@ -1895,4 +1938,9 @@ def fetch_newsletters_data():
             break
 
     return []
+
+
+# Aliases for PyQt6 and general frontend convenience
+fetch_homework_data = fetch_homeworks_list
+fetch_exams_data = fetch_all_student_exams
 

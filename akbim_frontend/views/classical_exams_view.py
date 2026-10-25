@@ -38,7 +38,7 @@ class ClassicalExamsView(Gtk.ScrolledWindow):
         title_box.append(title_lbl)
 
         subtitle_lbl = Gtk.Label()
-        subtitle_lbl.set_markup("<span size='small' alpha='70%'>Dönemlik yazılı sınav notları, sınıf ortalamaları ve karne dereceleri</span>")
+        subtitle_lbl.set_markup("<span size='small' foreground='#b8b8b8'>Dönemlik yazılı sınav notları, sınıf ortalamaları ve karne dereceleri</span>")
         subtitle_lbl.set_halign(Gtk.Align.START)
         title_box.append(subtitle_lbl)
 
@@ -97,13 +97,12 @@ class ClassicalExamsView(Gtk.ScrolledWindow):
 
     def open_exam_schedule_pdf(self):
         def worker():
-            from api_bridge import fetch_exam_days_calendar
+            from api_bridge import fetch_exam_days_calendar, open_file_external
             cal = fetch_exam_days_calendar()
             view_url = cal.get("view_url") or cal.get("download_url")
             if view_url:
                 try:
-                    import webbrowser
-                    webbrowser.open(view_url)
+                    open_file_external(view_url)
                 except Exception as e:
                     print(f"Takvim açma hatası: {e}")
         threading.Thread(target=worker, daemon=True).start()
@@ -202,7 +201,7 @@ class ClassicalExamsView(Gtk.ScrolledWindow):
 
         # KPI Kutuları
         self.add_kpi_card("Ders Sayısı", str(total_lessons), "accessories-dictionary-symbolic")
-        self.add_kpi_card("Yazılı Ortalaması", f"{avg_score:.1f}" if avg_score else "-", "emblem-default-symbolic")
+        self.add_kpi_card("Yazılı Ortalaması", f"{avg_score:.1f}" if avg_score else "-", "accessories-calculator-symbolic")
         self.add_kpi_card("En Yüksek Not", f"{max_score:.1f}" if max_score else "-", "starred-symbolic")
         self.add_kpi_card("En Düşük Not", f"{min_score:.1f}" if min_score else "-", "view-list-bullet-symbolic")
 
@@ -256,7 +255,7 @@ class ClassicalExamsView(Gtk.ScrolledWindow):
         top_box.append(icon)
 
         t_lbl = Gtk.Label()
-        t_lbl.set_markup(f"<span size='small' alpha='75%'>{title}</span>")
+        t_lbl.set_markup(f"<span size='small' foreground='#b8b8b8'>{title}</span>")
         top_box.append(t_lbl)
         card.append(top_box)
 

@@ -47,13 +47,19 @@ class LoginView(Gtk.Box):
         logo_box.set_halign(Gtk.Align.CENTER)
 
         if logo_path:
-            logo_img = Gtk.Image.new_from_file(str(logo_path))
-            logo_img.set_pixel_size(96)
+            try:
+                from gi.repository import Gdk
+                texture = Gdk.Texture.new_from_filename(str(logo_path))
+                logo_img = Gtk.Image.new_from_paintable(texture)
+                logo_img.set_pixel_size(72)
+            except Exception:
+                logo_img = Gtk.Image.new_from_icon_name("limeobs")
+                logo_img.set_pixel_size(72)
             logo_box.append(logo_img)
         else:
             # Fallback olarak kayıtlı ikon temasından çek
             logo_img = Gtk.Image.new_from_icon_name("limeobs")
-            logo_img.set_pixel_size(96)
+            logo_img.set_pixel_size(72)
             logo_box.append(logo_img)
 
         title_lbl = Gtk.Label()
@@ -61,7 +67,7 @@ class LoginView(Gtk.Box):
         logo_box.append(title_lbl)
 
         sub_lbl = Gtk.Label()
-        sub_lbl.set_markup("<span size='medium' alpha='70%'>Öğrenci &amp; Veli Masasüstü İstemcisi</span>")
+        sub_lbl.set_markup("<span size='medium' foreground='#b8b8b8'>Öğrenci &amp; Veli Masasüstü İstemcisi</span>")
         logo_box.append(sub_lbl)
 
         main_box.append(logo_box)

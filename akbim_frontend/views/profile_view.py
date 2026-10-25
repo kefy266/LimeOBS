@@ -290,6 +290,7 @@ class ProfileView(Gtk.ScrolledWindow):
                 picture = Gtk.Picture.new_for_paintable(texture)
                 picture.set_size_request(160, 200)
                 picture.set_can_shrink(True)
+                picture.set_content_fit(Gtk.ContentFit.CONTAIN)
                 picture.add_css_class("profile-picture")
                 self.photo_container.append(picture)
             except Exception as e:

@@ -41,9 +41,9 @@ def parse_day_date_obj(date_str, default_year=None):
             elif val > 2000:
                 y = val
         else:
-            p_clean = p.replace('İ', 'i').replace('I', 'ı').lower()
-            if p_clean in MONTH_NAMES_TR:
-                m = MONTH_NAMES_TR[p_clean]
+            p_lower = p.lower()
+            if p_lower in MONTH_NAMES_TR:
+                m = MONTH_NAMES_TR[p_lower]
     if d and m and y:
         try:
             return date(y, m, d)
@@ -103,7 +103,7 @@ def classify_meal(meal_name, index_in_day=0):
 
     # 2. Çorba / Başlangıç
     if "ÇORBA" in m:
-        return ("Başlangıç / Çorba", "food-symbolic")
+        return ("Başlangıç / Çorba", "emoji-food-symbolic")
 
     # 3. Tatlı, İçecek, Su, Salata
     dessert_drink_keywords = [
@@ -133,18 +133,18 @@ def classify_meal(meal_name, index_in_day=0):
         "SARMA", "DOLMA", "MUSAKKA", "FAHITA", "GÖVEÇ", "TAVA", "PANE"
     ]
     if any(k in m for k in main_dish_keywords):
-        return ("Ana Yemek", "emblem-favorite-symbolic")
+        return ("Ana Yemek", "starred-symbolic")
 
     # 6. Zeytinyağlı / Sebze Yemeği Belirteçleri
     if "Z.Y" in m or "ZY" in m or "T.Y" in m or "SEBZE" in m or "KIZARTMA" in m:
-        return ("Ana Yemek / Sebze", "emblem-favorite-symbolic")
+        return ("Ana Yemek / Sebze", "starred-symbolic")
 
     # 7. Konum bazlı fallback:
     # Genelde 1. sırada çorba, 2. sırada ana yemek, 3. sırada garnitür, 4. ve sonrasında tatlı/içecek gelir.
     if index_in_day == 0:
-        return ("Başlangıç", "food-symbolic")
+        return ("Başlangıç", "emoji-food-symbolic")
     elif index_in_day == 1:
-        return ("Ana Yemek", "emblem-favorite-symbolic")
+        return ("Ana Yemek", "starred-symbolic")
     elif index_in_day == 2:
         return ("Garnitür", "view-grid-symbolic")
     else:
@@ -175,29 +175,18 @@ def parse_food_menu(pdf_bytes):
             if not items:
                 continue
 
-            # 1. Gün başlıklarını dinamik tespit et ve yatay bölünmüş metinleri (ör. '26 Ekim' ve '2026 Pazartesi') birleştir
-            day_keyword_items = [it for it in items if any(d in it[2] for d in day_names_keywords) and it[1] >= 300]
-            if not day_keyword_items:
-                continue
+            # 1. Gün başlıklarını dinamik tespit et
+            date_items = []
+            for it in items:
+                x, y, txt = it
+                if any(d in txt for d in day_names_keywords):
+                    # Sayfanın üst yarısında yer almalıdır (y genelde 350-550 arası)
+                    if y >= 300:
+                        date_items.append(it)
 
-            ref_y = day_keyword_items[0][1]
-            header_row = [it for it in items if abs(it[1] - ref_y) < 8]
-            header_row.sort(key=lambda it: it[0])
-
-            merged_headers = []
-            for it in header_row:
-                if not merged_headers:
-                    merged_headers.append([it[0], it[1], it[2]])
-                else:
-                    last = merged_headers[-1]
-                    if 0 <= (it[0] - last[0]) < 85:
-                        last[2] = f"{last[2]} {it[2]}"
-                    else:
-                        merged_headers.append([it[0], it[1], it[2]])
-
-            date_items = [m for m in merged_headers if any(d in m[2] for d in day_names_keywords)]
             date_items.sort(key=lambda it: it[0])
 
+            # Gün bulunamadıysa fallback
             if not date_items:
                 continue
 
@@ -417,29 +406,18 @@ class FoodListView(Gtk.ScrolledWindow):
         first_active_page_name = None
         active_weeks_count = 0
 
-        # Aktif haftayı tespit et (içinde hedef okul günü veya sonrası bulunan ilk hafta)
-        active_target_wn = None
-        for w in weeks:
-            w_dates = [parse_day_date_obj(d["date"]) for d in w["days"]]
-            valid_w_dates = [d for d in w_dates if d]
-            if any(d >= effective_date for d in valid_w_dates):
-                active_target_wn = w["week_num"]
-                break
-
         for w in weeks:
             wn = w["week_num"]
-            w_dates = [parse_day_date_obj(d["date"]) for d in w["days"]]
-            valid_w_dates = [d for d in w_dates if d]
-
-            # 6 günden daha eski tamamen bitmiş eski haftaları filtrele
-            if valid_w_dates and max(valid_w_dates) < (effective_date - timedelta(days=6)):
-                continue
-
             week_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
             days_added = 0
 
             for day in w["days"]:
                 d_obj = parse_day_date_obj(day["date"])
+                if d_obj:
+                    # Aktif hedef okul gününden önceki günleri filtrele (16:30 kuralı)
+                    if d_obj < effective_date:
+                        continue
+
                 day_group = Adw.PreferencesGroup()
                 is_effective_day = (d_obj == effective_date)
                 if is_effective_day:
@@ -478,8 +456,8 @@ class FoodListView(Gtk.ScrolledWindow):
 
             if days_added > 0:
                 page_name = f"week_{wn}"
-                self.stack.add_titled_with_icon(week_box, page_name, f"{wn}. Hafta", "food-symbolic")
-                if first_active_page_name is None or (active_target_wn and wn == active_target_wn):
+                self.stack.add_titled_with_icon(week_box, page_name, f"{wn}. Hafta", "emoji-food-symbolic")
+                if first_active_page_name is None:
                     first_active_page_name = page_name
                 active_weeks_count += 1
 

@@ -1,41 +1,54 @@
 <#
 .SYNOPSIS
-    LimeOBS - Windows Otomatik Kurulum ve Başlatma Scripti
+    LimeOBS - Windows PowerShell Başlatıcı (Download and Go)
 .DESCRIPTION
-    Windows 10 ve Windows 11 üzerinde LimeOBS için gerekli Python paketlerini,
-    bildirim desteğini ve bağımlılıklarını hazırlar ve uygulamayı başlatır.
+    Bağımsız LimeOBS.exe varsa doğrudan başlatır (hiçbir Python veya kütüphane gerektirmez).
+    Kaynak koddan çalıştırma durumunda ortamı kontrol eder.
 #>
 
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 Write-Host "======================================================================" -ForegroundColor Cyan
-Write-Host " 🍋 LimeOBS Windows PowerShell Kurulum ve Başlatıcı" -ForegroundColor Green
+Write-Host " 🍋 LimeOBS Windows PowerShell Başlatıcı" -ForegroundColor Green
 Write-Host "======================================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 1. Python Kontrolü
+$PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# 1. Bağımsız Hazır EXE Kontrolü
+$exePaths = @(
+    Join-Path $PSScriptRoot "dist\LimeOBS\LimeOBS.exe",
+    Join-Path $PSScriptRoot "LimeOBS\LimeOBS.exe",
+    Join-Path $PSScriptRoot "LimeOBS.exe"
+)
+
+foreach ($exe in $exePaths) {
+    if (Test-Path $exe) {
+        Write-Host "[✓] Bağımsız LimeOBS.exe bulundu: $exe" -ForegroundColor Green
+        Write-Host "[✓] Başlatılıyor (Sıfır bağımlılık / Portable)..." -ForegroundColor Cyan
+        Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe)
+        exit 0
+    }
+}
+
+# 2. MSYS2 UCRT64 Python Kontrolü
+$msysPython = "C:\msys64\ucrt64\bin\python.exe"
+if (Test-Path $msysPython) {
+    Write-Host "[✓] MSYS2 UCRT64 Python tespit edildi. Başlatılıyor..." -ForegroundColor Green
+    $env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
+    Start-Process -FilePath $msysPython -ArgumentList "akbim_qt/main.py" -WorkingDirectory $PSScriptRoot
+    exit 0
+}
+
+# 3. Sistem Python Kontrolü
 try {
     $pythonVersion = & python --version 2>&1
-    Write-Host "[✓] Python bulundu: $pythonVersion" -ForegroundColor Green
+    Write-Host "[✓] Sistem Python bulundu: $pythonVersion" -ForegroundColor Green
+    & python -m pip install PyQt6 requests beautifulsoup4 pillow pypdf --quiet
+    Start-Process -FilePath "python" -ArgumentList "akbim_qt/main.py" -WorkingDirectory $PSScriptRoot
+    exit 0
 } catch {
-    Write-Host "[HATA] Python bulunamadı! Lütfen Microsoft Store'dan veya python.org'dan Python kurun." -ForegroundColor Red
+    Write-Host "[HATA] Ne bağımsız LimeOBS.exe ne de Python bulunabildi!" -ForegroundColor Red
+    Write-Host "Lütfen 'LimeOBS_Windows_Portable.zip' arşivini bir klasöre çıkartıp içindeki 'LimeOBS.exe'ye çift tıklayın." -ForegroundColor Yellow
     pause
     exit 1
 }
-
-# 2. Pip Paketlerinin Kurulumu
-Write-Host "[*] Gerekli Python paketleri güncelleniyor (requests, beautifulsoup4, pillow)..." -ForegroundColor Yellow
-& python -m pip install --upgrade pip requests beautifulsoup4 pillow pycairo PyGObject --quiet
-
-# 3. İsteğe Bağlı Bildirim Desteği (BurntToast)
-try {
-    if (-not (Get-Module -ListAvailable -Name BurntToast)) {
-        Write-Host "[*] Windows yerel Toast bildirim modülü (BurntToast) kuruluyor..." -ForegroundColor Yellow
-        Install-Module -Name BurntToast -Force -SkipPublisherCheck -Scope CurrentUser -ErrorAction SilentlyContinue
-    }
-} catch {
-    # Hata olursa PowerShell yerel Windows.UI.Notifications kullanılacaktır
-}
-
-# 4. Uygulamayı Başlat
-Write-Host "[✓] Kurulum hazır. LimeOBS başlatılıyor..." -ForegroundColor Green
-Start-Process -FilePath "python" -ArgumentList "akbim_frontend/main.py" -WorkingDirectory $PSScriptRoot

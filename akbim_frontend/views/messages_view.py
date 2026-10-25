@@ -247,7 +247,7 @@ class MessagesView(Gtk.ScrolledWindow):
             row = Adw.ActionRow()
             row.set_title("Gelen kutunuz boş.")
             row.set_subtitle("Okuldan henüz bir mesaj veya bildirim gönderilmemiş.")
-            row.set_icon_name("mail-inbox-symbolic")
+            row.set_icon_name("mail-unread-symbolic")
             inbox_group.add(row)
         else:
             for mail in inbox_mails:

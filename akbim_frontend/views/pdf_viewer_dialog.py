@@ -173,6 +173,31 @@ class PdfViewerDialog(Adw.Window):
             self.prev_btn.set_sensitive(False)
             self.next_btn.set_sensitive(False)
             self.page_label.set_text("0 / 0")
+            if not getattr(self, "_fallback_shown", False):
+                self._fallback_shown = True
+                self.picture.set_visible(False)
+                fallback_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+                fallback_box.set_valign(Gtk.Align.CENTER)
+                fallback_box.set_halign(Gtk.Align.CENTER)
+                fallback_box.set_margin_top(40)
+                
+                info_icon = Gtk.Image.new_from_icon_name("document-open-symbolic")
+                info_icon.set_pixel_size(64)
+                fallback_box.append(info_icon)
+                
+                lbl = Gtk.Label()
+                lbl.set_markup("<span size='large' weight='bold'>PDF Dosyası Hazır</span>\n<span>Dokümanı varsayılan PDF görüntüleyicinizde açmak için tıklayın:</span>")
+                lbl.set_justify(Gtk.Justification.CENTER)
+                fallback_box.append(lbl)
+                
+                if self.temp_file_path:
+                    btn = Gtk.Button(label="📄 PDF Belgesini Aç")
+                    btn.add_css_class("suggested-action")
+                    btn.add_css_class("pill")
+                    btn.connect("clicked", lambda _: open_file_external(self.temp_file_path))
+                    fallback_box.append(btn)
+                
+                self.image_container.append(fallback_box)
             return
 
         self.prev_btn.set_sensitive(self.current_page_idx > 0)
@@ -196,14 +221,18 @@ class PdfViewerDialog(Adw.Window):
         if not self.temp_file_path or not os.path.exists(self.temp_file_path):
             return
 
+        import sys
         try:
-            # 1. lp komutu varsa doğrudan yazıcıya gönder
-            subprocess.run(["lp", self.temp_file_path], check=True)
-            print("Yazıcıya gönderildi:", self.temp_file_path)
+            if sys.platform.startswith("win"):
+                os.startfile(self.temp_file_path, "print")
+                print("Windows yazıcıya gönderildi:", self.temp_file_path)
+            elif sys.platform == "darwin":
+                subprocess.run(["lpr", self.temp_file_path], check=True)
+            else:
+                subprocess.run(["lp", self.temp_file_path], check=True)
+                print("Yazıcıya gönderildi:", self.temp_file_path)
         except Exception:
             try:
-                # 2. Alternatif: Sistem yazdırma aracıyla aç
-                from api_bridge import open_file_external
                 open_file_external(self.temp_file_path)
             except Exception as err:
                 print(f"Yazdırma hatası: {err}")

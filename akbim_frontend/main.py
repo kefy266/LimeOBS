@@ -1,13 +1,119 @@
 import os
 import sys
-import threading
 from pathlib import Path
+
+# Log all outputs to gtk_debug.log so we can see any unhandled crash or exception
+LOG_FILE = Path(__file__).resolve().parent.parent / "gtk_debug.log"
+try:
+    log_f = open(LOG_FILE, "a", encoding="utf-8", buffering=1)
+    sys.stdout = log_f
+    sys.stderr = log_f
+    print("[LimeOBS GTK4] Logging started", flush=True)
+except Exception:
+    pass
+
+import threading
+
+# ==============================================================================
+# WINDOWS ENVIRONMENT & GRAPHICS FIXES
+# ==============================================================================
+if sys.platform.startswith("win"):
+    # 0. Add MSYS2 UCRT64 binary path to DLL directory and PATH
+    if hasattr(os, "add_dll_directory"):
+        for p in ["C:/msys64/ucrt64/bin", "C:/msys64/mingw64/bin"]:
+            if os.path.isdir(p):
+                try:
+                    os.add_dll_directory(p)
+                except Exception:
+                    pass
+    if "C:\\msys64\\ucrt64\\bin" not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = "C:\\msys64\\ucrt64\\bin;" + os.environ.get("PATH", "")
+
+    # Windows AppUserModelID for taskbar icon grouping
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.kagan.limeobs")
+    except Exception:
+        pass
+
+    if os.path.isdir("C:/msys64/ucrt64/share/glib-2.0/schemas"):
+        os.environ["GSETTINGS_SCHEMA_DIR"] = "C:/msys64/ucrt64/share/glib-2.0/schemas"
+    
+    # Custom project icons + MSYS2 XDG data dirs
+    custom_icons = str(Path(__file__).resolve().parent / "icons")
+    cur_xdg = os.environ.get("XDG_DATA_DIRS", "")
+    os.environ["XDG_DATA_DIRS"] = custom_icons + os.pathsep + "C:/msys64/ucrt64/share" + (os.pathsep + cur_xdg if cur_xdg else "")
+
+    # FreeType & Fontconfig settings for crystal-clear Windows subpixel font rendering (ClearType)
+    os.environ["FREETYPE_PROPERTIES"] = "truetype:interpreter-version=40"
+    if os.path.isdir("C:/msys64/ucrt64/etc/fonts"):
+        os.environ["FONTCONFIG_PATH"] = "C:/msys64/ucrt64/etc/fonts"
+
+    # 2. Fix GdkPixbuf loaders.cache with absolute paths to ensure PNG, SVG, JPEG
+    # load properly in PyInstaller frozen bundles
+    try:
+        if getattr(sys, 'frozen', False):
+            base_dir = Path(sys.executable).parent
+            internal_dir = Path(getattr(sys, '_MEIPASS', base_dir / '_internal'))
+        else:
+            base_dir = Path(__file__).resolve().parent.parent
+            internal_dir = base_dir
+
+        loader_candidates = [
+            internal_dir / "lib" / "gdk-pixbuf" / "loaders",
+            internal_dir / "lib" / "gdk-pixbuf-2.0" / "2.10.0" / "loaders",
+            Path("C:/msys64/ucrt64/lib/gdk-pixbuf-2.0/2.10.0/loaders"),
+        ]
+        loader_dir = next((d for d in loader_candidates if d.is_dir()), None)
+
+        cache_candidates = [
+            internal_dir / "lib" / "gdk-pixbuf" / "loaders.cache",
+            internal_dir / "lib" / "gdk-pixbuf-2.0" / "2.10.0" / "loaders.cache",
+            Path("C:/msys64/ucrt64/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"),
+        ]
+        cache_file = next((f for f in cache_candidates if f.is_file()), None)
+
+        if loader_dir and cache_file:
+            import tempfile
+            with open(cache_file, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            new_lines = []
+            for line in content.splitlines():
+                line_s = line.strip()
+                if line_s.startswith('"') and ('.dll"' in line_s or '.so"' in line_s):
+                    dll_name = Path(line_s.strip('"').replace('\\', '/')).name
+                    abs_dll = str(loader_dir / dll_name).replace("\\", "\\\\")
+                    new_lines.append(f'"{abs_dll}"')
+                else:
+                    new_lines.append(line)
+
+            tmp_cache = Path(tempfile.gettempdir()) / f"gdk_pixbuf_loaders_{os.getpid()}.cache"
+            with open(tmp_cache, "w", encoding="utf-8") as f:
+                f.write("\n".join(new_lines) + "\n")
+
+            os.environ["GDK_PIXBUF_MODULE_FILE"] = str(tmp_cache)
+
+        # 3. Fix XDG_DATA_DIRS for Adwaita icon themes
+        share_candidates = [
+            internal_dir / "share",
+            Path("C:/msys64/ucrt64/share"),
+        ]
+        share_dir = next((d for d in share_candidates if d.is_dir()), None)
+        if share_dir:
+            cur_xdg = os.environ.get("XDG_DATA_DIRS", "")
+            os.environ["XDG_DATA_DIRS"] = str(share_dir) + (os.pathsep + cur_xdg if cur_xdg else "")
+    except Exception as env_err:
+        print(f"Windows environment bootstrap warning: {env_err}")
 
 # Add project root to sys.path so we can import backend in read-only mode
 if getattr(sys, 'frozen', False):
     # AppImage / PyInstaller içinde çalışırken
     APP_DIR = Path(sys._MEIPASS)
-    ROOT_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "limeobs"
+    if sys.platform.startswith("win"):
+        ROOT_DIR = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "LimeOBS"
+    else:
+        ROOT_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "limeobs"
     ROOT_DIR.mkdir(parents=True, exist_ok=True)
     sys.path.insert(0, str(APP_DIR))
     sys.path.insert(0, str(APP_DIR / "akbim_frontend"))
@@ -18,6 +124,12 @@ else:
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
+if sys.platform.startswith("win"):
+    try:
+        gi.require_version("GdkWin32", "4.0")
+        from gi.repository import GdkWin32
+    except Exception:
+        pass
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
 
 GLib.set_prgname("com.kagan.limeobs")
@@ -57,20 +169,43 @@ from api_bridge import (
 class AkbimApplication(Adw.Application):
     def __init__(self):
         super().__init__(
-            application_id="com.kagan.limeobs",
+            application_id=None,
             flags=Gio.ApplicationFlags.FLAGS_NONE
         )
         self.window = None
+        # Apply Native Windows 11 Fluent font settings and fractional subpixel metrics
+        try:
+            settings = Gtk.Settings.get_default()
+            if settings:
+                settings.set_property("gtk-icon-theme-name", "Adwaita")
+                settings.set_property("gtk-font-name", "Segoe UI Variable Text 10.5")
+                settings.set_property("gtk-hint-font-metrics", False)
+                settings.set_property("gtk-font-rendering", 0)
+                settings.set_property("gtk-xft-antialias", 1)
+                settings.set_property("gtk-xft-hinting", 1)
+                settings.set_property("gtk-xft-hintstyle", "hintslight")
+                settings.set_property("gtk-xft-rgba", "rgb")
+            gi.require_version("PangoCairo", "1.0")
+            from gi.repository import PangoCairo
+            fm = PangoCairo.font_map_get_default()
+            if hasattr(fm, "set_resolution"):
+                fm.set_resolution(96.0)
+        except Exception:
+            pass
 
     def do_activate(self):
+        print("[LimeOBS GTK4] do_activate started", flush=True)
         self.load_icons()
         if not self.window:
+            print("[LimeOBS GTK4] Creating AkbimMainWindow...", flush=True)
             self.load_css()
             self.window = AkbimMainWindow(self)
         
         saved_theme = get_saved_theme()
         self.apply_theme(saved_theme)
+        print("[LimeOBS GTK4] Presenting window...", flush=True)
         self.window.present()
+        print("[LimeOBS GTK4] Window presented successfully!", flush=True)
 
     def apply_theme(self, theme_name):
         style_mgr = Adw.StyleManager.get_default()
@@ -98,12 +233,36 @@ class AkbimApplication(Adw.Application):
         frontend_dir = Path(__file__).parent
         display = Gdk.Display.get_default()
         if display:
+            settings = Gtk.Settings.get_default()
+            if settings:
+                try:
+                    settings.set_property("gtk-icon-theme-name", "Adwaita")
+                    settings.set_property("gtk-font-name", "Segoe UI Variable Text 10.5")
+                    settings.set_property("gtk-hint-font-metrics", False)
+                    settings.set_property("gtk-font-rendering", 0)
+                    settings.set_property("gtk-xft-antialias", 1)
+                    settings.set_property("gtk-xft-hinting", 1)
+                    settings.set_property("gtk-xft-hintstyle", "hintslight")
+                    settings.set_property("gtk-xft-rgba", "rgb")
+                except Exception:
+                    pass
+
             icon_theme = Gtk.IconTheme.get_for_display(display)
+            icons_dir = frontend_dir / "icons"
+            if icons_dir.is_dir():
+                icon_theme.add_search_path(str(icons_dir))
             icon_theme.add_search_path(str(frontend_dir))
-            # AppDir altındaki hicolor ikon dizinlerini de ekleyelim
-            icon_theme.add_search_path("/usr/share/icons")
+            if getattr(sys, 'frozen', False):
+                base_dir = Path(sys.executable).parent
+                meipass = Path(getattr(sys, '_MEIPASS', base_dir / '_internal'))
+                icon_theme.add_search_path(str(meipass / "share" / "icons"))
+                icon_theme.add_search_path(str(meipass / "akbim_frontend"))
+                icon_theme.add_search_path(str(base_dir / "_internal" / "share" / "icons"))
             icon_theme.add_search_path(str(Path(sys.prefix) / "share" / "icons"))
             icon_theme.add_search_path(str(frontend_dir.parent / "share" / "icons"))
+            icon_theme.add_search_path("C:/msys64/ucrt64/share/icons")
+            if not sys.platform.startswith("win"):
+                icon_theme.add_search_path("/usr/share/icons")
 
     def load_css(self):
         candidate_paths = [
@@ -135,6 +294,27 @@ class AkbimMainWindow(Adw.ApplicationWindow):
         self.set_icon_name("limeobs")
         self.set_default_size(1180, 780)
 
+        # Apply native Windows icon to HWND on realize
+        if sys.platform.startswith("win"):
+            def on_realize_win(win):
+                try:
+                    surface = win.get_surface()
+                    if surface and hasattr(surface, "get_handle"):
+                        hwnd = surface.get_handle()
+                        if hwnd:
+                            ico_path = str(Path(__file__).parent / "app_icon.ico")
+                            if os.path.exists(ico_path):
+                                import ctypes
+                                h_big = ctypes.windll.user32.LoadImageW(None, ico_path, 1, 32, 32, 0x10)
+                                h_sm = ctypes.windll.user32.LoadImageW(None, ico_path, 1, 16, 16, 0x10)
+                                if h_big:
+                                    ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 1, h_big)
+                                if h_sm:
+                                    ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 0, h_sm)
+                except Exception:
+                    pass
+            self.connect("realize", on_realize_win)
+
         # Ana Ekran Yöneticisi (Stack: Giriş Sayfası vs Ana Panel)
         self.main_stack = Gtk.Stack()
         self.main_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
@@ -148,6 +328,7 @@ class AkbimMainWindow(Adw.ApplicationWindow):
         self.main_stack.add_named(self.dashboard_widget, "dashboard")
 
         self.set_content(self.main_stack)
+        self.main_stack.set_visible_child_name("login")
 
         # ⌨️ Genel Klavye Kısayolları (Ctrl + K -> Quick Launcher)
         key_controller = Gtk.EventControllerKey()
@@ -273,12 +454,12 @@ class AkbimMainWindow(Adw.ApplicationWindow):
         self.stack.add_titled_with_icon(self.attendance_view, "attendance", "Devamsızlık", "user-available-symbolic")
         self.stack.add_titled_with_icon(self.homework_view, "homework", "Ödevler", "x-office-document-symbolic")
         self.stack.add_titled_with_icon(self.classical_exams_view, "classical_exams", "Yazılı Sınavlar", "accessories-dictionary-symbolic")
-        self.stack.add_titled_with_icon(self.exams_view, "exams", "Sınavlar", "emblem-documents-symbolic")
-        self.stack.add_titled_with_icon(self.food_view, "food", "Yemek Listesi", "food-symbolic")
+        self.stack.add_titled_with_icon(self.exams_view, "exams", "Sınavlar", "view-continuous-symbolic")
+        self.stack.add_titled_with_icon(self.food_view, "food", "Yemek Listesi", "emoji-food-symbolic")
         self.stack.add_titled_with_icon(self.library_view, "library", "Kütüphane", "starred-symbolic")
-        self.stack.add_titled_with_icon(self.announcements_view, "announcements", "Duyuru ve Etkinlik", "notifications-symbolic")
+        self.stack.add_titled_with_icon(self.announcements_view, "announcements", "Duyuru ve Etkinlik", "alarm-symbolic")
         self.stack.add_titled_with_icon(self.teachers_view, "teachers", "Öğretmenler", "avatar-default-symbolic")
-        self.stack.add_titled_with_icon(self.messages_view, "messages", "Gelen Kutusu", "mail-inbox-symbolic")
+        self.stack.add_titled_with_icon(self.messages_view, "messages", "Gelen Kutusu", "mail-unread-symbolic")
         self.stack.add_titled_with_icon(self.profile_view, "profile", "Profil", "contact-new-symbolic")
 
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -329,7 +510,7 @@ class AkbimMainWindow(Adw.ApplicationWindow):
         header_bar.pack_end(theme_btn)
 
         # 🔔 Canlı Bildirim Merkezi Butonu (Açılır Bildirim Paneli)
-        self.notify_btn = Gtk.Button(icon_name="notifications-symbolic")
+        self.notify_btn = Gtk.Button(icon_name="alarm-symbolic")
         self.notify_btn.set_tooltip_text("Canlı Okul Bildirimleri")
         self.notify_btn.connect("clicked", lambda btn: show_notifications_popover(btn, on_navigate_tab=self.navigate_to_tab))
         header_bar.pack_end(self.notify_btn)
@@ -391,10 +572,16 @@ class AkbimMainWindow(Adw.ApplicationWindow):
 
         brand_logo_file = next((p for p in brand_logo_paths if p.exists()), None)
         if brand_logo_file:
-            brand_img = Gtk.Image.new_from_file(str(brand_logo_file))
+            try:
+                texture = Gdk.Texture.new_from_filename(str(brand_logo_file))
+                brand_img = Gtk.Image.new_from_paintable(texture)
+                brand_img.set_pixel_size(24)
+            except Exception:
+                brand_img = Gtk.Image.new_from_icon_name("limeobs")
+                brand_img.set_pixel_size(24)
         else:
             brand_img = Gtk.Image.new_from_icon_name("limeobs")
-        brand_img.set_pixel_size(24)
+            brand_img.set_pixel_size(24)
         brand_box.append(brand_img)
 
         brand_label = Gtk.Label()
@@ -440,12 +627,12 @@ class AkbimMainWindow(Adw.ApplicationWindow):
             ("Devamsızlık Takip", "user-available-symbolic", "attendance"),
             ("Ödevlerim", "x-office-document-symbolic", "homework"),
             ("Yazılı Sınavlarım", "accessories-dictionary-symbolic", "classical_exams"),
-            ("Deneme Sınavlarım", "emblem-documents-symbolic", "exams"),
-            ("Yemek Listesi", "food-symbolic", "food"),
+            ("Deneme Sınavlarım", "view-continuous-symbolic", "exams"),
+            ("Yemek Listesi", "emoji-food-symbolic", "food"),
             ("Okul Kütüphanesi", "starred-symbolic", "library"),
-            ("Duyuru ve Etkinlik", "notifications-symbolic", "announcements"),
+            ("Duyuru ve Etkinlik", "alarm-symbolic", "announcements"),
             ("Öğretmenlerim", "avatar-default-symbolic", "teachers"),
-            ("Gelen Kutusu", "mail-inbox-symbolic", "messages"),
+            ("Gelen Kutusu", "mail-unread-symbolic", "messages"),
             ("Kullanıcı Profili", "contact-new-symbolic", "profile"),
         ]
 
@@ -660,15 +847,8 @@ class AkbimMainWindow(Adw.ApplicationWindow):
                         last_seen_id = getattr(self, "_last_notif_id", None)
                         if last_seen_id is not None and latest_id != last_seen_id:
                             # Yeni bir bildirim geldi! Masaüstü bildirimi tetikle
-                            title = latest.get("title", "LimeOBS Okul Bildirimi")
-                            import subprocess
-                            subprocess.run([
-                                "notify-send",
-                                "-a", "LimeOBS",
-                                "-i", "dialog-information",
-                                "LimeOBS — Yeni Bildirim",
-                                title
-                            ], check=False)
+                            from notification_daemon import send_system_notification
+                            send_system_notification("LimeOBS — Yeni Bildirim", title)
                         self._last_notif_id = latest_id
                 except Exception:
                     pass
@@ -699,4 +879,4 @@ class AkbimMainWindow(Adw.ApplicationWindow):
 
 if __name__ == "__main__":
     app = AkbimApplication()
-    app.run(sys.argv)
+    app.run(None)

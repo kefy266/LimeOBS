@@ -1,52 +1,61 @@
 @echo off
 chcp 65001 >nul
-title LimeOBS - Windows Kurulum ve Baslatici
+title LimeOBS - Windows Baslatici
+cd /d "%~dp0"
 
 echo ======================================================================
-echo  🍋 LimeOBS Windows Kurulum ve Calistirma Sihirbazi
+echo  🍋 LimeOBS Windows Baslatici (Download and Go)
 echo ======================================================================
 echo.
 
-:: 1. Python Kontrolu
+:: 1. Bagimsiz Hazir EXE Kontrolu (Sifir bagimlilik - Dogrudan calisir)
+if exist "dist\LimeOBS\LimeOBS.exe" (
+    echo [✓] Bagimsiz LimeOBS.exe tespit edildi. Baslatiliyor...
+    start "" "dist\LimeOBS\LimeOBS.exe"
+    exit /b 0
+)
+
+if exist "LimeOBS\LimeOBS.exe" (
+    echo [✓] Bagimsiz LimeOBS.exe tespit edildi. Baslatiliyor...
+    start "" "LimeOBS\LimeOBS.exe"
+    exit /b 0
+)
+
+if exist "LimeOBS.exe" (
+    echo [✓] Bagimsiz LimeOBS.exe tespit edildi. Baslatiliyor...
+    start "" "LimeOBS.exe"
+    exit /b 0
+)
+
+:: 2. MSYS2 UCRT64 Python Ortami Kontrolu (PyQt6)
+if exist "C:\msys64\ucrt64\bin\python.exe" (
+    echo [✓] MSYS2 UCRT64 Python ortami tespit edildi.
+    set "PATH=C:\msys64\ucrt64\bin;%PATH%"
+    start "" "C:\msys64\ucrt64\bin\pythonw.exe" "akbim_qt/main.py"
+    if %errorlevel% neq 0 (
+        "C:\msys64\ucrt64\bin\python.exe" "akbim_qt/main.py"
+    )
+    exit /b 0
+)
+
+:: 3. Standart Sistem Python Kontrolu
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [HATA] Python sisteminizde bulunamadi!
-    echo Lutfen https://www.python.org/ adresinden Python 3.10 veya daha yenisini kurun.
-    echo Kurarken "Add python.exe to PATH" secenegini isaretlemeyi unutmayin.
+    echo [HATA] Bagimsiz LimeOBS.exe veya Python bulunamadi!
+    echo.
+    echo Eger 'LimeOBS_Windows_Portable.zip' dosyaniz varsa, zipten cikartip
+    echo icindeki 'LimeOBS.exe' dosyasina cift tiklayarak aninda calistirabilirsiniz.
     pause
     exit /b 1
 )
 
-echo [1/3] Python dogrulandi.
-echo.
+echo [1/2] Sistem Python dogrulandi.
+python -m pip install PyQt6 requests beautifulsoup4 pillow pypdf >nul 2>&1
 
-:: 2. GTK4 / PyGObject Kontrolu ve Rehberi
-:: Windows uzerinde GTK4 ve Libadwaita en saglikli sekilde MSYS2 veya pip pycairo/PyGObject tekerleri ile calisir.
-echo [2/3] Gerekli Python kutuphaneleri yukleniyor...
-python -m pip install --upgrade pip >nul 2>&1
-python -m pip install requests beautifulsoup4 pillow >nul 2>&1
-
-:: PyGObject kurulumu deneniyor
-python -c "import gi" >nul 2>&1
+echo [2/2] LimeOBS Baslatiliyor...
+start "" pythonw akbim_qt/main.py
 if %errorlevel% neq 0 (
-    echo [*] PyGObject kuruluyor...
-    python -m pip install pycairo PyGObject >nul 2>&1
-)
-
-python -c "import gi" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo.
-    echo [BILGI] Windows'ta GTK4 ve Libadwaita kutuphaneleri icin onerilen kurulum:
-    echo 1. MSYS2 kurun: https://www.msys2.org/
-    echo 2. MSYS2 ucucbiriminde: pacman -S mingw-w64-ucrt-x86_64-gtk4 mingw-w64-ucrt-x86_64-libadwaita mingw-w64-ucrt-x86_64-python-gobject
-    echo.
-)
-
-:: 3. LimeOBS Calistirma
-echo [3/3] LimeOBS Baslatiliyor...
-start "" pythonw akbim_frontend/main.py
-if %errorlevel% neq 0 (
-    python akbim_frontend/main.py
+    python akbim_qt/main.py
 )
 
 exit /b 0

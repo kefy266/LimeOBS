@@ -479,7 +479,7 @@ class ExamsView(Gtk.ScrolledWindow):
             chart_title_box.append(c_lbl)
 
             c_sub = Gtk.Label()
-            c_sub.set_markup("<span size='smaller' alpha='70%'>Kronolojik sınav puan eğilimi ve net değişim basamakları</span>")
+            c_sub.set_markup("<span size='small' foreground='#b8b8b8'>Kronolojik sınav puan eğilimi ve net değişim basamakları</span>")
             c_sub.set_halign(Gtk.Align.START)
             chart_title_box.append(c_sub)
 
@@ -519,7 +519,7 @@ class ExamsView(Gtk.ScrolledWindow):
                 txt_v.append(lbl_step_name)
 
                 lbl_step_val = Gtk.Label()
-                lbl_step_val.set_markup(f"<span size='smaller' alpha='75%'>{date_txt} • <b>{p_val:.2f} Puan</b></span>")
+                lbl_step_val.set_markup(f"<span size='small' foreground='#b8b8b8'>{date_txt} • <b>{p_val:.2f} Puan</b></span>")
                 lbl_step_val.set_halign(Gtk.Align.START)
                 txt_v.append(lbl_step_val)
 
@@ -571,7 +571,7 @@ class ExamsView(Gtk.ScrolledWindow):
             l_title_box.append(l_t)
 
             l_sub = Gtk.Label()
-            l_sub.set_markup("<span size='smaller' alpha='70%'>Ders bazında doğru oranı yüzdeleri ve karne net ortalamaları</span>")
+            l_sub.set_markup("<span size='small' foreground='#b8b8b8'>Ders bazında doğru oranı yüzdeleri ve karne net ortalamaları</span>")
             l_sub.set_halign(Gtk.Align.START)
             l_title_box.append(l_sub)
 
@@ -832,7 +832,7 @@ class ExamsView(Gtk.ScrolledWindow):
 
         top_h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         title_lbl = Gtk.Label()
-        title_lbl.set_markup(f"<span size='smaller' weight='700' alpha='70%'>{title}</span>")
+        title_lbl.set_markup(f"<span size='small' weight='700' foreground='#b8b8b8'>{title}</span>")
         title_lbl.set_halign(Gtk.Align.START)
         title_lbl.set_hexpand(True)
         top_h.append(title_lbl)
@@ -845,7 +845,7 @@ class ExamsView(Gtk.ScrolledWindow):
         # Puan Göstergesi
         puan_h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         puan_lbl = Gtk.Label()
-        puan_lbl.set_markup(f"<span size='x-large' weight='800'>{puan_avg:.2f}</span> <span size='small' alpha='70%'>Puan</span>")
+        puan_lbl.set_markup(f"<span size='x-large' weight='bold'>{puan_avg:.2f}</span> <span size='small' foreground='#b8b8b8'>Puan</span>")
         puan_lbl.set_halign(Gtk.Align.START)
         puan_h.append(puan_lbl)
         box.append(puan_h)
@@ -870,7 +870,7 @@ class ExamsView(Gtk.ScrolledWindow):
             if gd_avg is not None:
                 gd_h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
                 gd_lbl = Gtk.Label()
-                gd_lbl.set_markup(f"<span size='smaller' alpha='80%'>🏫 Okul: <b>{gd_avg:.1f}</b>.</span>")
+                gd_lbl.set_markup(f"<span size='small' foreground='#d0d0d0'>🏫 Okul: <b>{gd_avg:.1f}</b>.</span>")
                 gd_lbl.set_halign(Gtk.Align.START)
                 gd_h.append(gd_lbl)
                 rank_box.append(gd_h)
@@ -878,7 +878,7 @@ class ExamsView(Gtk.ScrolledWindow):
             if sd_avg is not None:
                 sd_h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
                 sd_lbl = Gtk.Label()
-                sd_lbl.set_markup(f"<span size='smaller' alpha='80%'>👥 Sınıf: <b>{sd_avg:.1f}</b>.</span>")
+                sd_lbl.set_markup(f"<span size='small' foreground='#d0d0d0'>👥 Sınıf: <b>{sd_avg:.1f}</b>.</span>")
                 sd_lbl.set_halign(Gtk.Align.START)
                 sd_h.append(sd_lbl)
                 rank_box.append(sd_h)
