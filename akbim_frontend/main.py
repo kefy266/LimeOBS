@@ -2,15 +2,16 @@ import os
 import sys
 from pathlib import Path
 
-# Log all outputs to gtk_debug.log so we can see any unhandled crash or exception
-LOG_FILE = Path(__file__).resolve().parent.parent / "gtk_debug.log"
-try:
-    log_f = open(LOG_FILE, "a", encoding="utf-8", buffering=1)
-    sys.stdout = log_f
-    sys.stderr = log_f
-    print("[LimeOBS GTK4] Logging started", flush=True)
-except Exception:
-    pass
+# Log outputs to gtk_debug.log on Windows or when running without a console
+if sys.platform.startswith("win") or sys.stdout is None:
+    try:
+        LOG_FILE = Path(__file__).resolve().parent.parent / "gtk_debug.log"
+        log_f = open(LOG_FILE, "a", encoding="utf-8", buffering=1)
+        sys.stdout = log_f
+        sys.stderr = log_f
+        print("[LimeOBS GTK4] Logging started", flush=True)
+    except Exception:
+        pass
 
 import threading
 
@@ -128,6 +129,7 @@ if sys.platform.startswith("win"):
     try:
         gi.require_version("GdkWin32", "4.0")
         from gi.repository import GdkWin32
+        _ = GdkWin32
     except Exception:
         pass
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
@@ -762,6 +764,29 @@ class AkbimMainWindow(Adw.ApplicationWindow):
         self.main_stack.set_visible_child_name("login")
 
     def on_refresh_all(self, button):
+        # Anasayfa ve ders programını hiç bekletmeden anında yüklemeye başlat
+        self.home_view.load_data()
+        self.schedule_view.load_data()
+
+        cur_tab = self.stack.get_visible_child_name()
+        if cur_tab and cur_tab not in ("home", "schedule"):
+            view_map = {
+                "classical_exams": self.classical_exams_view,
+                "exams": self.exams_view,
+                "homework": self.homework_view,
+                "food": self.food_view,
+                "messages": self.messages_view,
+                "attendance": self.attendance_view,
+                "announcements": self.announcements_view,
+                "teachers": self.teachers_view,
+                "library": self.library_view,
+                "etut": self.etut_view,
+                "profile": self.profile_view,
+            }
+            target = view_map.get(cur_tab)
+            if target and hasattr(target, "load_data"):
+                target.load_data()
+
         def worker():
             try:
                 profile = get_adaptive_profile_data()
@@ -793,28 +818,6 @@ class AkbimMainWindow(Adw.ApplicationWindow):
                 academic_term = school_meta.get("academic_term", "2026-2027")
 
                 GLib.idle_add(self.update_user_header, name, subtitle, photo_bytes, school_name, academic_term)
-                GLib.idle_add(self.home_view.load_data)
-                GLib.idle_add(self.schedule_view.load_data)
-
-                # Sadece anasayfa ve ders programını yükle; diğer sekmeler tıklandıkça tembel (lazy) yüklenecektir.
-                cur_tab = self.stack.get_visible_child_name()
-                if cur_tab and cur_tab not in ("home", "schedule"):
-                    view_map = {
-                        "classical_exams": self.classical_exams_view,
-                        "exams": self.exams_view,
-                        "homework": self.homework_view,
-                        "food": self.food_view,
-                        "messages": self.messages_view,
-                        "attendance": self.attendance_view,
-                        "announcements": self.announcements_view,
-                        "teachers": self.teachers_view,
-                        "library": self.library_view,
-                        "etut": self.etut_view,
-                        "profile": self.profile_view,
-                    }
-                    target = view_map.get(cur_tab)
-                    if target and hasattr(target, "load_data"):
-                        GLib.idle_add(target.load_data)
 
                 # ⏱️ 60 Saniyelik Canlı Güncelleme ve Bildirim Kontrolü Başlat
                 if not hasattr(self, "_timer_started") or not self._timer_started:
@@ -832,9 +835,9 @@ class AkbimMainWindow(Adw.ApplicationWindow):
             return False  # Login ekranındaysak veya çıkış yapıldıysa arka plan sorgusunu sonlandır
 
         try:
-            # 1. HomeView canlı sayacını tazele
-            if hasattr(self, "home_view") and hasattr(self.home_view, "load_data"):
-                self.home_view.load_data()
+            # 1. HomeView canlı sayacını ağ isteği atmadan anında tazele
+            if hasattr(self, "home_view") and hasattr(self.home_view, "refresh_live_timer_only"):
+                self.home_view.refresh_live_timer_only()
 
             # 2. 🔔 Arka planda yeni bildirim kontrolü (Masaüstü Bildirimi Gönder)
             def check_notifs():
@@ -846,9 +849,16 @@ class AkbimMainWindow(Adw.ApplicationWindow):
                         latest_id = str(latest.get("id") or latest.get("title"))
                         last_seen_id = getattr(self, "_last_notif_id", None)
                         if last_seen_id is not None and latest_id != last_seen_id:
-                            # Yeni bir bildirim geldi! Masaüstü bildirimi tetikle
-                            from notification_daemon import send_system_notification
-                            send_system_notification("LimeOBS — Yeni Bildirim", title)
+                            title = latest.get("title", "LimeOBS Okul Bildirimi")
+                            if not sys.platform.startswith("win"):
+                                import subprocess
+                                subprocess.run([
+                                    "notify-send",
+                                    "-a", "LimeOBS",
+                                    "-i", "dialog-information",
+                                    "LimeOBS — Yeni Bildirim",
+                                    title
+                                ], check=False)
                         self._last_notif_id = latest_id
                 except Exception:
                     pass

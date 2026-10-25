@@ -121,13 +121,6 @@ class ScheduleView(Gtk.ScrolledWindow):
         now = datetime.now()
         effective_day_idx = get_effective_school_day_idx(now)
         effective_date = get_effective_school_date(now)
-        weekday_idx = now.isoweekday()
-        cur_time = now.time()
-        is_friday_or_weekend = (weekday_idx == 5 and cur_time >= time(16, 30)) or (weekday_idx in (6, 7))
-
-        # Eğer seçili filtre geçmiş bir günse, sıfırla (Tüm Kalan Günler)
-        if not is_friday_or_weekend and self.selected_day_filter != 0 and self.selected_day_filter < effective_day_idx:
-            self.selected_day_filter = 0
 
         all_btn = Gtk.Button(label="Tüm Hafta")
         if self.selected_day_filter == 0:
@@ -141,13 +134,8 @@ class ScheduleView(Gtk.ScrolledWindow):
                 continue
 
             day_name = day_data[0] if len(day_data) > 0 else f"Gün {day_index}"
-            if "Cumartesi" in day_name or "Pazar" in day_name:
+            if day_name.strip() in ("Cumartesi", "Pazar"):
                 continue
-
-            # 16:30 Kuralı: Biten günleri filtrele
-            if not is_friday_or_weekend:
-                if day_index < effective_day_idx:
-                    continue
 
             is_effective = (day_index == effective_day_idx)
             if is_effective:
@@ -177,7 +165,6 @@ class ScheduleView(Gtk.ScrolledWindow):
         effective_date = get_effective_school_date(now)
         weekday_idx = now.isoweekday()
         cur_time = now.time()
-        is_friday_or_weekend = (weekday_idx == 5 and cur_time >= time(16, 30)) or (weekday_idx in (6, 7))
 
         while self.days_container.get_first_child():
             self.days_container.remove(self.days_container.get_first_child())
@@ -199,26 +186,22 @@ class ScheduleView(Gtk.ScrolledWindow):
                 continue
 
             day_name = day_data[0] if len(day_data) > 0 else f"Gün {day_index}"
-            if "Cumartesi" in day_name or "Pazar" in day_name:
+            if day_name.strip() in ("Cumartesi", "Pazar"):
                 continue
-
-            # 16:30 Kuralı: Biten günleri gizle
-            if not is_friday_or_weekend:
-                if day_index < effective_day_idx:
-                    continue
 
             if self.selected_day_filter != 0 and day_index != self.selected_day_filter:
                 continue
 
-            day_date = day_data[1] if len(day_data) > 1 else ""
+            # Aktif haftaya ait gerçek takvim tarihini hesapla
+            calc_date = effective_date + timedelta(days=(day_index - effective_day_idx))
+            day_date_str = calc_date.strftime("%d.%m.%Y")
+
             is_effective = (day_index == effective_day_idx)
             is_today = (day_index == weekday_idx)
 
             # Gün Grubu (PreferencesGroup dikey düzenli liste)
             day_group = Adw.PreferencesGroup()
-            title_text = f"📅 {day_name}"
-            if day_date:
-                title_text += f" ({day_date})"
+            title_text = f"📅 {day_name} ({day_date_str})"
             if is_effective:
                 if effective_date == now.date():
                     title_text += " — BUGÜN"

@@ -105,12 +105,11 @@ class HomeworkView(Gtk.ScrolledWindow):
         self._start_details_prefetch()
 
     def _start_details_prefetch(self):
-        """Tüm ödevlerin açıklama ve ek dosyalarını arka planda çeker ve kartlara anında yansıtır."""
+        """Sadece aktif ödevlerin ve son birkaç ödevin açıklamalarını arka planda çeker (oturumu kilitlemez)."""
         def prefetch_worker():
-            # Önce aktif ödevleri, sonra geçmiş ödevleri çek
             active_hws = [h for h in self._cached_homeworks if h.get("isActive", False)]
-            other_hws = [h for h in self._cached_homeworks if not h.get("isActive", False)]
-            ordered = active_hws + other_hws
+            recent_other = [h for h in self._cached_homeworks if not h.get("isActive", False)][:3]
+            ordered = active_hws + recent_other
 
             for hw in ordered:
                 hw_id = hw.get("id")

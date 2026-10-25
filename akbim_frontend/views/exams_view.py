@@ -119,8 +119,11 @@ class ExamsView(Gtk.ScrolledWindow):
         return name.title()
 
     def _calculate_lesson_averages(self, exams):
-        """Tüm deneme ve tarama sınavlarından ders bazlı net ortalamalarını derler."""
+        """Tüm deneme ve tarama sınavlarından ders bazlı net ortalamalarını paralel derler."""
+        from concurrent.futures import ThreadPoolExecutor
         lesson_nets = {}
+        sbs_to_fetch = []
+
         for e in exams:
             if e.get("isTarama"):
                 for l in e.get("dasLessons", []):
@@ -135,17 +138,23 @@ class ExamsView(Gtk.ScrolledWindow):
                 exam_id = e.get("examId") or e.get("sinavKod")
                 exam_type = e.get("examType", "SBS")
                 if exam_id:
+                    sbs_to_fetch.append((exam_id, exam_type))
+
+        if sbs_to_fetch:
+            mapping = [
+                (1, "Türkçe"),
+                (2, "Matematik"),
+                (3, "Din Kültürü"),
+                (4, "Fen Bilimleri"),
+                (5, "Sosyal Bilgiler"),
+                (6, "İngilizce"),
+            ]
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                futures = [pool.submit(fetch_exam_report, eid, etype) for eid, etype in sbs_to_fetch]
+                for fut in futures:
                     try:
-                        rep = fetch_exam_report(exam_id, exam_type)
+                        rep = fut.result()
                         if rep and rep.get("data"):
-                            mapping = [
-                                (1, "Türkçe"),
-                                (2, "Matematik"),
-                                (3, "Din Kültürü"),
-                                (4, "Fen Bilimleri"),
-                                (5, "Sosyal Bilgiler"),
-                                (6, "İngilizce"),
-                            ]
                             for idx, lname in mapping:
                                 n = rep["data"].get(f"N{idx}")
                                 if n is not None:
@@ -155,7 +164,7 @@ class ExamsView(Gtk.ScrolledWindow):
                                     except Exception:
                                         pass
                     except Exception as err:
-                        print(f"Ders net hesaplama hatası ({exam_id}): {err}")
+                        print(f"Ders net hesaplama hatası: {err}")
 
         desired_order = ["Türkçe", "Matematik", "Fen Bilimleri", "Sosyal Bilgiler", "Din Kültürü", "İngilizce"]
         result = {}

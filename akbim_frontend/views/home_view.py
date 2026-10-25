@@ -114,9 +114,21 @@ class HomeView(Gtk.ScrolledWindow):
     def load_data(self):
         def worker():
             try:
+                # 1. Hızlı çekirdek verileri (profil, ders programı, ödevler) hemen çek ve arayüzü anında çiz (~0.3sn)
                 profile = get_adaptive_profile_data()
                 index_data = get_adaptive_index_data()
                 homeworks = fetch_homeworks_list()
+
+                GLib.idle_add(
+                    self.update_ui,
+                    profile,
+                    index_data,
+                    homeworks,
+                    self._cached_exams or [],
+                    None
+                )
+
+                # 2. Ağır olan yemek PDF'i ve sınav listesini hemen ardından tamamla
                 exams = fetch_all_student_exams()
                 food_data = fetch_food_list_data()
 
@@ -132,6 +144,17 @@ class HomeView(Gtk.ScrolledWindow):
                 print(f"HomeView load_data error: {e}")
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def refresh_live_timer_only(self):
+        """Ağ isteği yapmadan mevcut ders programı önbelleğiyle canlı ders sayacını günceller."""
+        if not self._cached_index_data:
+            return
+        now = datetime.now()
+        sched_data = self._cached_index_data.get("data", {}).get("lessonSchedule", {}).get("data", {})
+        x_info = sched_data.get("xInfo", [])
+        lessons = sched_data.get("data", [])
+        self.render_live_lesson_status(now, x_info, lessons)
+        self.render_bag_reminder(now, lessons)
 
     def update_ui(self, profile, index_data, homeworks, exams, food_data):
         self._cached_index_data = index_data

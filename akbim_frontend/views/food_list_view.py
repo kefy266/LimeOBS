@@ -41,9 +41,9 @@ def parse_day_date_obj(date_str, default_year=None):
             elif val > 2000:
                 y = val
         else:
-            p_lower = p.lower()
-            if p_lower in MONTH_NAMES_TR:
-                m = MONTH_NAMES_TR[p_lower]
+            p_clean = p.replace('İ', 'i').replace('I', 'ı').lower()
+            if p_clean in MONTH_NAMES_TR:
+                m = MONTH_NAMES_TR[p_clean]
     if d and m and y:
         try:
             return date(y, m, d)
@@ -151,6 +151,9 @@ def classify_meal(meal_name, index_in_day=0):
         return ("Tatlı / İçecek / Yan Ürün", "starred-symbolic")
 
 
+_PARSED_FOOD_CACHE = {}
+
+
 def parse_food_menu(pdf_bytes):
     """
     Okulun yemek listesi PDF dosyasını dinamik olarak gün gün ve yemek yemek ayrıştırır.
@@ -158,6 +161,10 @@ def parse_food_menu(pdf_bytes):
     """
     if not pdf_bytes:
         return []
+
+    cache_key = (len(pdf_bytes), hash(pdf_bytes[:4096]))
+    if cache_key in _PARSED_FOOD_CACHE:
+        return _PARSED_FOOD_CACHE[cache_key]
 
     try:
         reader = PdfReader(io.BytesIO(pdf_bytes))
@@ -175,18 +182,29 @@ def parse_food_menu(pdf_bytes):
             if not items:
                 continue
 
-            # 1. Gün başlıklarını dinamik tespit et
-            date_items = []
-            for it in items:
-                x, y, txt = it
-                if any(d in txt for d in day_names_keywords):
-                    # Sayfanın üst yarısında yer almalıdır (y genelde 350-550 arası)
-                    if y >= 300:
-                        date_items.append(it)
+            # 1. Gün başlıklarını dinamik tespit et ve yatay bölünmüş metinleri (ör. '26 Ekim' ve '2026 Pazartesi') birleştir
+            day_keyword_items = [it for it in items if any(d in it[2] for d in day_names_keywords) and it[1] >= 300]
+            if not day_keyword_items:
+                continue
 
+            ref_y = day_keyword_items[0][1]
+            header_row = [it for it in items if abs(it[1] - ref_y) < 8]
+            header_row.sort(key=lambda it: it[0])
+
+            merged_headers = []
+            for it in header_row:
+                if not merged_headers:
+                    merged_headers.append([it[0], it[1], it[2]])
+                else:
+                    last = merged_headers[-1]
+                    if 0 <= (it[0] - last[0]) < 85:
+                        last[2] = f"{last[2]} {it[2]}"
+                    else:
+                        merged_headers.append([it[0], it[1], it[2]])
+
+            date_items = [m for m in merged_headers if any(d in m[2] for d in day_names_keywords)]
             date_items.sort(key=lambda it: it[0])
 
-            # Gün bulunamadıysa fallback
             if not date_items:
                 continue
 
@@ -258,6 +276,8 @@ def parse_food_menu(pdf_bytes):
                 "days": days
             })
 
+        if all_weeks:
+            _PARSED_FOOD_CACHE[cache_key] = all_weeks
         return all_weeks
     except Exception as e:
         print(f"Yemek listesi ayrıştırma hatası: {e}")
@@ -406,18 +426,29 @@ class FoodListView(Gtk.ScrolledWindow):
         first_active_page_name = None
         active_weeks_count = 0
 
+        # Aktif haftayı tespit et (içinde hedef okul günü veya sonrası bulunan ilk hafta)
+        active_target_wn = None
+        for w in weeks:
+            w_dates = [parse_day_date_obj(d["date"]) for d in w["days"]]
+            valid_w_dates = [d for d in w_dates if d]
+            if any(d >= effective_date for d in valid_w_dates):
+                active_target_wn = w["week_num"]
+                break
+
         for w in weeks:
             wn = w["week_num"]
+            w_dates = [parse_day_date_obj(d["date"]) for d in w["days"]]
+            valid_w_dates = [d for d in w_dates if d]
+
+            # 6 günden daha eski tamamen bitmiş eski haftaları filtrele
+            if valid_w_dates and max(valid_w_dates) < (effective_date - timedelta(days=6)):
+                continue
+
             week_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
             days_added = 0
 
             for day in w["days"]:
                 d_obj = parse_day_date_obj(day["date"])
-                if d_obj:
-                    # Aktif hedef okul gününden önceki günleri filtrele (16:30 kuralı)
-                    if d_obj < effective_date:
-                        continue
-
                 day_group = Adw.PreferencesGroup()
                 is_effective_day = (d_obj == effective_date)
                 if is_effective_day:
@@ -457,7 +488,7 @@ class FoodListView(Gtk.ScrolledWindow):
             if days_added > 0:
                 page_name = f"week_{wn}"
                 self.stack.add_titled_with_icon(week_box, page_name, f"{wn}. Hafta", "emoji-food-symbolic")
-                if first_active_page_name is None:
+                if first_active_page_name is None or (active_target_wn and wn == active_target_wn):
                     first_active_page_name = page_name
                 active_weeks_count += 1
 

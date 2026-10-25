@@ -208,9 +208,31 @@ _last_session_check_time = 0.0
 _last_session_status = None
 
 
+def _parse_and_cache_nav_from_text(text):
+    """menuLoader.php yanıtından window.obsNavData nesnesini ayrıştırıp önbelleğe yazar."""
+    global _CACHED_NAV_METADATA
+    try:
+        if "window.obsNavData = " in text:
+            json_text = text.split("window.obsNavData = ", 1)[1].split("};", 1)[0] + "}"
+            data = json.loads(json_text)
+            key = data.get("key")
+            brand_sub = data.get("brand", {}).get("sub", "").lower()
+            user_sub = data.get("user", {}).get("sub", "").lower()
+            if key == "parent" or "veli" in brand_sub or "veli" in user_sub:
+                key = "parent"
+            else:
+                key = "student"
+            base = data.get("base", f"pages/{key}/")
+            _CACHED_NAV_METADATA = {"key": key, "base": base, "raw": data}
+            return _CACHED_NAV_METADATA
+    except Exception:
+        pass
+    return None
+
+
 def check_session_status(force=False):
     """
-    Oturum durumunu kontrol eder (20 saniyelik dahili önbellekleme ile sunucu boğulmasını engeller):
+    Oturum durumunu kontrol eder (120 saniyelik dahili önbellekleme ile gereksiz ağ isteklerini önler):
       True  -> Oturum geçerli ve aktif
       False -> Oturum süresi DOLMUŞ (sunucu 200 döndü ama oturum yok / login.php menüsü döndü)
       None  -> Ağ hatası / Bağlantı kurulamadı (sunucuya ulaşılamadı)
@@ -218,13 +240,14 @@ def check_session_status(force=False):
     global _last_session_check_time, _last_session_status
     with _session_check_lock:
         now = time.time()
-        if not force and _last_session_status is True and (now - _last_session_check_time < 20):
+        if not force and _last_session_status is True and (now - _last_session_check_time < 120):
             return True
 
         try:
             res = akbim_api.session.get(f"{akbim_api.BASEURL}/require/menuLoader.php", timeout=8)
             if res.ok:
                 if "window.obsNavData = " in res.text:
+                    _parse_and_cache_nav_from_text(res.text)
                     _last_session_status = True
                     _last_session_check_time = now
                     return True
@@ -248,6 +271,10 @@ def check_session_status(force=False):
 def is_session_active():
     """Geriye uyumluluk: Sadece oturum kesinlikle aktifse True döner."""
     return check_session_status() is True
+
+
+# akbim_api.check_session çağrılarını da önbellekli kontrole yönlendir
+akbim_api.check_session = is_session_active
 
 
 _ensure_session_lock = threading.Lock()
@@ -299,7 +326,6 @@ def get_saved_theme():
         except Exception:
             pass
     return "liquid"
-
 
 
 def save_theme(theme_name):
@@ -356,21 +382,66 @@ def set_current_view_mode(mode):
 _CACHED_EXAM_DASHBOARD_META = {}
 _CACHED_NAV_METADATA = None
 _CACHED_SCHOOL_METADATA = None
+_PHOTO_FETCH_ATTEMPTED = False
+_CACHED_PROFILE_DATA = None
+_CACHED_PROFILE_TIME = 0.0
+_CACHED_INDEX_DATA = None
+_CACHED_INDEX_TIME = 0.0
+_CACHED_FOOD_DATA = None
+_CACHED_FOOD_TIME = 0.0
+_CACHED_HOMEWORKS = None
+_CACHED_HOMEWORKS_TIME = 0.0
+_CACHED_HOMEWORK_DETAILS = {}
+_CACHED_EXAMS = {}
+_CACHED_EXAMS_TIME = 0.0
+_CACHED_EXAM_REPORTS = {}
+_CACHED_CLASSICAL_EXAMS = None
+_CACHED_CLASSICAL_TIME = 0.0
+_CACHED_TEACHERS = None
+_CACHED_TEACHERS_TIME = 0.0
 
 
 def clear_cache():
-    global _CACHED_PHOTO_BYTES, _CURRENT_VIEW_MODE, _CACHED_EXAM_DASHBOARD_META, _CACHED_NAV_METADATA, _CACHED_SCHOOL_METADATA
+    global _CACHED_PHOTO_BYTES, _PHOTO_FETCH_ATTEMPTED, _CURRENT_VIEW_MODE
+    global _CACHED_EXAM_DASHBOARD_META, _CACHED_NAV_METADATA, _CACHED_SCHOOL_METADATA
+    global _CACHED_PROFILE_DATA, _CACHED_PROFILE_TIME
+    global _CACHED_INDEX_DATA, _CACHED_INDEX_TIME
+    global _CACHED_FOOD_DATA, _CACHED_FOOD_TIME
+    global _CACHED_HOMEWORKS, _CACHED_HOMEWORKS_TIME, _CACHED_HOMEWORK_DETAILS
+    global _CACHED_EXAMS, _CACHED_EXAMS_TIME, _CACHED_EXAM_REPORTS
+    global _CACHED_CLASSICAL_EXAMS, _CACHED_CLASSICAL_TIME
+    global _CACHED_TEACHERS, _CACHED_TEACHERS_TIME
+    global _last_session_status, _last_session_check_time
     _CACHED_PHOTO_BYTES = None
+    _PHOTO_FETCH_ATTEMPTED = False
     _CURRENT_VIEW_MODE = None
     _CACHED_EXAM_DASHBOARD_META = {}
     _CACHED_NAV_METADATA = None
     _CACHED_SCHOOL_METADATA = None
+    _CACHED_PROFILE_DATA = None
+    _CACHED_PROFILE_TIME = 0.0
+    _CACHED_INDEX_DATA = None
+    _CACHED_INDEX_TIME = 0.0
+    _CACHED_FOOD_DATA = None
+    _CACHED_FOOD_TIME = 0.0
+    _CACHED_HOMEWORKS = None
+    _CACHED_HOMEWORKS_TIME = 0.0
+    _CACHED_HOMEWORK_DETAILS = {}
+    _CACHED_EXAMS = {}
+    _CACHED_EXAMS_TIME = 0.0
+    _CACHED_EXAM_REPORTS = {}
+    _CACHED_CLASSICAL_EXAMS = None
+    _CACHED_CLASSICAL_TIME = 0.0
+    _CACHED_TEACHERS = None
+    _CACHED_TEACHERS_TIME = 0.0
+    _last_session_status = None
+    _last_session_check_time = 0.0
 
 
 def clear_active_session(clear_saved_login=False):
     """
     Tüm aktif oturum çerezlerini, diskteki session dosyasını ve önbellekleri sıfırlar.
-    clear_saved_login=True verilirse kayıtlı TC/şifreyi de (akbim_config.json) siler.
+    clear_saved_login=True verilirse kayıtlı TC/şifreyi de (keyring) siler.
     """
     clear_cache()
     reset_session_expired_flag()
@@ -394,7 +465,6 @@ def get_cached_exam_dashboard_meta():
     return _CACHED_EXAM_DASHBOARD_META or {}
 
 
-
 def get_school_metadata():
     """Bağlı okul adını ve aktif eğitim dönemini tespit eder."""
     global _CACHED_SCHOOL_METADATA
@@ -408,7 +478,6 @@ def get_school_metadata():
         nav = get_nav_metadata()
         brand_name = nav.get("raw", {}).get("brand", {}).get("name", "")
         if brand_name:
-            # "Tedem Koleji | Online Bilgi Sistemi" -> "Tedem Koleji"
             if "|" in brand_name:
                 school_name = brand_name.split("|")[0].strip()
             elif "-" in brand_name:
@@ -416,12 +485,10 @@ def get_school_metadata():
             else:
                 school_name = brand_name.strip()
         else:
-            # Domain adından çıkar
             domain = akbim_api.BASEURL.replace("https://", "").replace("http://", "").split("/")[0]
             clean_dom = domain.replace("obs.", "").replace("obs", "")
             school_name = clean_dom.split(".")[0].capitalize()
 
-        # Dönem tespiti: index exam tarihlerinden veya güncel yıldan
         from datetime import datetime
         now_year = datetime.now().year
         academic_term = f"{now_year}-{now_year+1}"
@@ -435,64 +502,56 @@ def get_school_metadata():
     return _CACHED_SCHOOL_METADATA
 
 
+_nav_meta_lock = threading.Lock()
+_profile_lock = threading.Lock()
+
+
 def get_nav_metadata(force_refresh=False):
     """menuLoader.php'den aktif oturumun rolünü ('parent'/'student') ve 'base' yolunu çeker (sonucu oturum süresince önbelleğe alır)."""
-    global _CACHED_NAV_METADATA
+    global _CACHED_NAV_METADATA, _last_session_status, _last_session_check_time
     if not force_refresh and _CACHED_NAV_METADATA:
         return _CACHED_NAV_METADATA
 
-    try:
-        # 1. Öncelik: menuLoader.php üzerinden kontrol (en kesin yöntem)
-        res = akbim_api.session.get(f"{akbim_api.BASEURL}/require/menuLoader.php")
-        if "window.obsNavData = " in res.text:
-            json_text = res.text.split("window.obsNavData = ", 1)[1].split("};", 1)[0] + "}"
-            data = json.loads(json_text)
-            key = data.get("key")
-            brand_sub = data.get("brand", {}).get("sub", "").lower()
-            user_sub = data.get("user", {}).get("sub", "").lower()
-            if key == "parent" or "veli" in brand_sub or "veli" in user_sub:
-                key = "parent"
-            else:
-                key = "student"
-            base = data.get("base", f"pages/{key}/")
-            _CACHED_NAV_METADATA = {"key": key, "base": base, "raw": data}
+    with _nav_meta_lock:
+        if not force_refresh and _CACHED_NAV_METADATA:
             return _CACHED_NAV_METADATA
-        else:
-            # Oturum geçersiz veya düşmüş olabilir, oturumu yenilemeyi dene
-            if ensure_valid_session():
-                res2 = akbim_api.session.get(f"{akbim_api.BASEURL}/require/menuLoader.php")
-                if "window.obsNavData = " in res2.text:
-                    json_text = res2.text.split("window.obsNavData = ", 1)[1].split("};", 1)[0] + "}"
-                    data = json.loads(json_text)
-                    key = "parent" if data.get("key") == "parent" else "student"
-                    base = data.get("base", f"pages/{key}/")
-                    _CACHED_NAV_METADATA = {"key": key, "base": base, "raw": data}
+
+        try:
+            res = akbim_api.session.get(f"{akbim_api.BASEURL}/require/menuLoader.php", timeout=8)
+            if "window.obsNavData = " in res.text:
+                parsed = _parse_and_cache_nav_from_text(res.text)
+                if parsed:
+                    _last_session_status = True
+                    _last_session_check_time = time.time()
+                    return parsed
+            else:
+                if ensure_valid_session():
+                    res2 = akbim_api.session.get(f"{akbim_api.BASEURL}/require/menuLoader.php", timeout=8)
+                    if "window.obsNavData = " in res2.text:
+                        parsed = _parse_and_cache_nav_from_text(res2.text)
+                        if parsed:
+                            return parsed
+
+            for candidate_key in ["student", "parent"]:
+                chk = akbim_api.session.get(f"{akbim_api.BASEURL}/pages/{candidate_key}/profile.php", timeout=8)
+                if chk.ok and "Kullanıcı Profili" in chk.text and "login.php" not in chk.url:
+                    _CACHED_NAV_METADATA = {"key": candidate_key, "base": f"pages/{candidate_key}/", "raw": {}}
                     return _CACHED_NAV_METADATA
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            print(f"menuLoader bağlantı uyarısı: {e}")
+        except Exception as e:
+            print(f"menuLoader okuma hatası: {e}")
 
-        # 2. Öncelik: Sayfa bazlı doğrulama
-        for candidate_key in ["student", "parent"]:
-            chk = akbim_api.session.get(f"{akbim_api.BASEURL}/pages/{candidate_key}/profile.php")
-            if chk.ok and "Kullanıcı Profili" in chk.text and "login.php" not in chk.url:
-                _CACHED_NAV_METADATA = {"key": candidate_key, "base": f"pages/{candidate_key}/", "raw": {}}
-                return _CACHED_NAV_METADATA
-    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-        print(f"menuLoader bağlantı uyarısı: {e}")
-    except Exception as e:
-        print(f"menuLoader okuma hatası: {e}")
-
-    fallback = {"key": "student", "base": "pages/student/", "raw": {}}
-    return fallback
+        fallback = {"key": "student", "base": "pages/student/", "raw": {}}
+        return fallback
 
 
-def get_adaptive_index_data():
+def get_adaptive_index_data(force_refresh=False):
     """Hem Veli (pages/parent/) hem de Öğrenci (pages/student/) için doğru indexAction endpoint'ine istek atar."""
-    # akbim_api.load_index()'i de doğrudan kullan
-    try:
-        data = akbim_api.load_index()
-        if data and data.get("success") and "data" in data:
-            return data
-    except Exception:
-        pass
+    global _CACHED_INDEX_DATA, _CACHED_INDEX_TIME
+    now = time.time()
+    if not force_refresh and _CACHED_INDEX_DATA and (now - _CACHED_INDEX_TIME < 120):
+        return _CACHED_INDEX_DATA
 
     nav = get_nav_metadata()
     base = nav.get("base", "pages/student/").strip("/")
@@ -513,11 +572,14 @@ def get_adaptive_index_data():
             res = akbim_api.session.post(
                 url,
                 data={"request": "loadIndex"},
-                headers={"X-Requested-With": "XMLHttpRequest"}
+                headers={"X-Requested-With": "XMLHttpRequest"},
+                timeout=8
             )
-            if res.ok:
+            if res.ok and res.text.strip().startswith("{"):
                 data = res.json()
                 if data.get("success") and "data" in data:
+                    _CACHED_INDEX_DATA = data
+                    _CACHED_INDEX_TIME = now
                     return data
         except Exception:
             continue
@@ -525,240 +587,262 @@ def get_adaptive_index_data():
     return {"success": False, "data": {"examList": [], "announcementList": [], "eventList": [], "lessonSchedule": {"data": {}}}}
 
 
-
-def fetch_student_photo_bytes():
-    """Öğrenci vesikalık fotoğrafını çeker ve ikili (bytes) olarak döner."""
-    global _CACHED_PHOTO_BYTES
-    if _CACHED_PHOTO_BYTES:
+def _try_download_photo_from_html_or_nav(html_text=None):
+    """Verilen profil HTML'inden veya nav bilgisinden öğrenci fotoğrafını tek seferde indirir."""
+    global _CACHED_PHOTO_BYTES, _PHOTO_FETCH_ATTEMPTED
+    if _CACHED_PHOTO_BYTES is not None:
         return _CACHED_PHOTO_BYTES
+    if _PHOTO_FETCH_ATTEMPTED:
+        return None
 
-    # 1. Öncelik: profile.php HTML içerisindeki <img> etiketi
-    candidate_profile_pages = [
-        f"{akbim_api.BASEURL}/pages/student/profile.php",
-        f"{akbim_api.BASEURL}/pages/parent/profile.php"
-    ]
-
+    _PHOTO_FETCH_ATTEMPTED = True
     headers = {
         "Accept": "image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8",
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)",
         "Referer": f"{akbim_api.BASEURL}/pages/student/profile.php"
     }
 
-    for p_url in candidate_profile_pages:
-        try:
-            p_res = akbim_api.session.get(p_url)
-            if p_res.ok and "login.php" not in p_res.url:
-                # Regex 1: studentPhoto.php içeren img etiketleri
-                match = re.search(r'<img\b[^>]*\bsrc\s*=\s*["\']([^"\']*studentPhoto\.php[^"\']*)["\']', p_res.text, re.IGNORECASE)
-                if not match:
-                    # Regex 2: Herhangi bir photo / vesikalık / profil img src'si
-                    match = re.search(r'<img\b[^>]*\bsrc\s*=\s*["\']([^"\']*(?:studentPhoto|photo|resim)[^"\']*)["\']', p_res.text, re.IGNORECASE)
-                
-                if match:
-                    rel_src = match.group(1).lstrip("/")
-                    full_url = rel_src if rel_src.startswith("http") else f"{akbim_api.BASEURL}/{rel_src}"
-                    img_res = akbim_api.session.get(full_url, headers=headers)
-                    if img_res.ok and len(img_res.content) > 100:
-                        _CACHED_PHOTO_BYTES = img_res.content
-                        return _CACHED_PHOTO_BYTES
-        except Exception as e:
-            print(f"HTML fotoğraf çekme hatası: {e}")
-
-    # 2. Öncelik: Doğrudan bilinen endpoint'ler
-    direct_photo_urls = [
-        f"{akbim_api.BASEURL}/pages/student/require/studentPhoto.php",
-        f"{akbim_api.BASEURL}/pages/student/studentPhoto.php",
-        f"{akbim_api.BASEURL}/require/studentPhoto.php"
-    ]
-    for d_url in direct_photo_urls:
-        try:
-            d_res = akbim_api.session.get(d_url, headers=headers)
-            if d_res.ok and len(d_res.content) > 100 and "text/html" not in d_res.headers.get("Content-Type", ""):
-                _CACHED_PHOTO_BYTES = d_res.content
-                return _CACHED_PHOTO_BYTES
-        except Exception:
-            pass
-
-    # 3. Öncelik: menuLoader.php içerisindeki user.photo alanı
+    # 1. menuLoader.php içerisindeki user.photo alanı (en hızlısı)
     try:
         nav = get_nav_metadata()
         photo_rel = nav.get("raw", {}).get("user", {}).get("photo")
-        if photo_rel:
+        if photo_rel and "default" not in photo_rel.lower():
             full_url = photo_rel if photo_rel.startswith("http") else f"{akbim_api.BASEURL}/{photo_rel.lstrip('/')}"
-            img_res = akbim_api.session.get(full_url, headers=headers)
-            if img_res.ok and len(img_res.content) > 100:
+            img_res = akbim_api.session.get(full_url, headers=headers, timeout=5)
+            if img_res.ok and len(img_res.content) > 100 and "text/html" not in img_res.headers.get("Content-Type", ""):
                 _CACHED_PHOTO_BYTES = img_res.content
                 return _CACHED_PHOTO_BYTES
-    except Exception as e:
-        print(f"menuLoader fotoğraf çekme hatası: {e}")
+    except Exception:
+        pass
+
+    # 2. Zaten indirilmiş olan profile.php HTML'i içerisinden <img> src'si
+    if html_text:
+        try:
+            match = re.search(r'<img\b[^>]*\bsrc\s*=\s*["\']([^"\']*studentPhoto\.php[^"\']*)["\']', html_text, re.IGNORECASE)
+            if not match:
+                match = re.search(r'<img\b[^>]*\bsrc\s*=\s*["\']([^"\']*(?:studentPhoto|photo|resim)[^"\']*)["\']', html_text, re.IGNORECASE)
+            if match:
+                rel_src = match.group(1).lstrip("/")
+                if "default" not in rel_src.lower():
+                    full_url = rel_src if rel_src.startswith("http") else f"{akbim_api.BASEURL}/{rel_src}"
+                    img_res = akbim_api.session.get(full_url, headers=headers, timeout=5)
+                    if img_res.ok and len(img_res.content) > 100 and "text/html" not in img_res.headers.get("Content-Type", ""):
+                        _CACHED_PHOTO_BYTES = img_res.content
+                        return _CACHED_PHOTO_BYTES
+        except Exception:
+            pass
 
     return None
 
 
-def get_adaptive_profile_data():
-    """Hem Veli hem Öğrenci hesaplarının profil bilgilerini ve vesikalık fotoğrafını çözer."""
-    nav = get_nav_metadata()
-    role_key = nav.get("key", "student")
-    is_parent = (role_key == "parent")
+def fetch_student_photo_bytes():
+    """Öğrenci vesikalık fotoğrafını çeker ve ikili (bytes) olarak döner."""
+    if _CACHED_PHOTO_BYTES is not None:
+        return _CACHED_PHOTO_BYTES
+    return _try_download_photo_from_html_or_nav(None)
 
-    profile_result = {
-        "role": "Veli" if is_parent else "Öğrenci",
-        "student_name": None,
-        "student_class": None,
-        "student_no": None,
-        "student_prog": None,
-        "parent_name": None,
-        "photo_bytes": None,
-        "raw_fields": {}
-    }
 
-    # 1. Öncelik: Öğrenci hesabı ise akbim_api.get_student_profile() çağrısı ile student profilini al
-    if not is_parent:
-        try:
-            api_profile = akbim_api.get_student_profile()
-            if isinstance(api_profile, dict) and not api_profile.get("error"):
-                for k, v in api_profile.items():
-                    profile_result["raw_fields"][k] = v
-                    k_lower = k.lower()
-                    if "veli" in k_lower and ("isim" in k_lower or "ad" in k_lower):
-                        profile_result["parent_name"] = v
-                    elif "isim" in k_lower or "ad soyad" in k_lower:
-                        if not profile_result["student_name"]:
-                            profile_result["student_name"] = v
-                    elif "sınıf" in k_lower:
-                        profile_result["student_class"] = v
-                    elif "no" in k_lower or "numara" in k_lower:
-                        profile_result["student_no"] = v
-                    elif "program" in k_lower:
-                        profile_result["student_prog"] = v
-        except Exception:
-            pass
+def get_adaptive_profile_data(force_refresh=False):
+    """Hem Veli hem Öğrenci hesaplarının profil bilgilerini ve vesikalık fotoğrafını çözer (300 sn önbellekli)."""
+    global _CACHED_PROFILE_DATA, _CACHED_PROFILE_TIME
+    now = time.time()
+    if not force_refresh and _CACHED_PROFILE_DATA and (now - _CACHED_PROFILE_TIME < 300):
+        return _CACHED_PROFILE_DATA
 
-    # 2. Öncelik: Sayfa bazlı tarama
-    # Veli oturumunda pages/parent/profile.php içinde hem Öğrenci hem Veli bilgileri yer alır!
-    candidate_urls = [
-        f"{akbim_api.BASEURL}/pages/parent/profile.php"
-    ] if is_parent else [
-        f"{akbim_api.BASEURL}/pages/student/profile.php",
-        f"{akbim_api.BASEURL}/pages/parent/profile.php"
-    ]
+    with _profile_lock:
+        now = time.time()
+        if not force_refresh and _CACHED_PROFILE_DATA and (now - _CACHED_PROFILE_TIME < 300):
+            return _CACHED_PROFILE_DATA
 
-    seen = set()
-    for url in candidate_urls:
-        if profile_result["student_name"] and profile_result["student_class"]:
-            break
-        if url in seen:
-            continue
-        seen.add(url)
+        nav = get_nav_metadata()
+        role_key = nav.get("key", "student")
+        is_parent = (role_key == "parent")
 
-        try:
-            res = akbim_api.session.get(url)
-            if not res.ok or "login.php" in res.url:
+        profile_result = {
+            "role": "Veli" if is_parent else "Öğrenci",
+            "student_name": None,
+            "student_class": None,
+            "student_no": None,
+            "student_prog": None,
+            "parent_name": None,
+            "photo_bytes": None,
+            "raw_fields": {}
+        }
+
+        candidate_urls = [
+            f"{akbim_api.BASEURL}/pages/parent/profile.php"
+        ] if is_parent else [
+            f"{akbim_api.BASEURL}/pages/student/profile.php",
+            f"{akbim_api.BASEURL}/pages/parent/profile.php"
+        ]
+
+        fetched_html = None
+        seen = set()
+        for url in candidate_urls:
+            if profile_result["student_name"] and profile_result["student_class"]:
+                break
+            if url in seen:
                 continue
+            seen.add(url)
 
-            soup = BeautifulSoup(res.text, "html.parser")
+            try:
+                res = akbim_api.session.get(url, timeout=8)
+                if not res.ok or "login.php" in res.url:
+                    continue
+                if not fetched_html:
+                    fetched_html = res.text
 
-            # dl-horizontal bloklarını doğrudan tara
-            dl_blocks = soup.find_all("dl", class_="dl-horizontal")
-            for dl in dl_blocks:
-                prev_h = dl.find_previous(["h1", "h2", "h3", "h4", "h5", "header"])
-                h_text = prev_h.get_text(" ", strip=True).lower() if prev_h else ""
-                is_student_block = ("öğrenci" in h_text)
-                is_parent_block = ("veli" in h_text)
+                soup = BeautifulSoup(res.text, "html.parser")
 
-                for dt in dl.find_all("dt"):
-                    dd = dt.find_next_sibling("dd")
-                    if not dd:
-                        continue
-                    label = dt.get_text(strip=True)
-                    val = dd.get_text(strip=True)
-                    
-                    if is_student_block or (not is_parent_block and not profile_result["student_name"]):
-                        profile_result["raw_fields"][f"student_{label}"] = val
-                        if label == "İsim Soyisim" and not profile_result["student_name"]:
+                dl_blocks = soup.find_all("dl", class_="dl-horizontal")
+                for dl in dl_blocks:
+                    prev_h = dl.find_previous(["h1", "h2", "h3", "h4", "h5", "header"])
+                    h_text = prev_h.get_text(" ", strip=True).lower() if prev_h else ""
+                    is_student_block = ("öğrenci" in h_text)
+                    is_parent_block = ("veli" in h_text)
+
+                    for dt in dl.find_all("dt"):
+                        dd = dt.find_next_sibling("dd")
+                        if not dd:
+                            continue
+                        label = dt.get_text(strip=True)
+                        val = dd.get_text(strip=True)
+
+                        if is_student_block or (not is_parent_block and not profile_result["student_name"]):
+                            profile_result["raw_fields"][f"student_{label}"] = val
+                            if not is_parent:
+                                profile_result["raw_fields"][label] = val
+                            if label in ("İsim Soyisim", "Ad Soyad") and not profile_result["student_name"]:
+                                profile_result["student_name"] = val
+                            elif "Sınıf" in label and not profile_result["student_class"]:
+                                profile_result["student_class"] = val
+                            elif ("Numara" in label or "No" in label) and not profile_result["student_no"]:
+                                profile_result["student_no"] = val
+                            elif "Program" in label and not profile_result["student_prog"]:
+                                profile_result["student_prog"] = val
+                            elif "Veli" in label and ("İsim" in label or "Ad" in label) and not profile_result["parent_name"]:
+                                profile_result["parent_name"] = val
+                        elif is_parent_block:
+                            profile_result["raw_fields"][f"parent_{label}"] = val
+                            if label in ("İsim Soyisim", "Ad Soyad"):
+                                profile_result["parent_name"] = val
+
+                if not profile_result["student_name"]:
+                    for dt in soup.find_all("dt"):
+                        label = dt.get_text(strip=True)
+                        dd = dt.find_next_sibling("dd")
+                        if not dd:
+                            continue
+                        val = dd.get_text(strip=True)
+                        profile_result["raw_fields"][label] = val
+                        if label in ("İsim Soyisim", "Ad Soyad") and not profile_result["student_name"]:
                             profile_result["student_name"] = val
-                        elif label == "Sınıf Kodu" and not profile_result["student_class"]:
+                        elif "Sınıf" in label and not profile_result["student_class"]:
                             profile_result["student_class"] = val
                         elif ("Numara" in label or "No" in label) and not profile_result["student_no"]:
                             profile_result["student_no"] = val
                         elif "Program" in label and not profile_result["student_prog"]:
                             profile_result["student_prog"] = val
-                    elif is_parent_block:
-                        profile_result["raw_fields"][f"parent_{label}"] = val
-                        if label == "İsim Soyisim":
+                        elif "Veli" in label and ("İsim" in label or "Ad" in label) and not profile_result["parent_name"]:
                             profile_result["parent_name"] = val
+            except Exception as e:
+                print(f"Profil sayfası kazıma hatası ({url}): {e}")
+                continue
 
-            # Genel dt/dd araması fallback
-            if not profile_result["student_name"]:
-                for dt in soup.find_all("dt"):
-                    label = dt.get_text(strip=True)
-                    dd = dt.find_next_sibling("dd")
-                    if not dd:
-                        continue
-                    val = dd.get_text(strip=True)
-                    if label == "İsim Soyisim":
-                        profile_result["student_name"] = val
-                    elif label == "Sınıf Kodu":
-                        profile_result["student_class"] = val
-                    elif "Numara" in label or "No" in label:
-                        profile_result["student_no"] = val
-        except Exception as e:
-            print(f"Profil sayfası kazıma hatası ({url}): {e}")
+        user_info = nav.get("raw", {}).get("user", {})
+        if is_parent:
+            if not profile_result["parent_name"] and user_info.get("name"):
+                profile_result["parent_name"] = user_info["name"]
+        else:
+            if not profile_result["student_name"] and user_info.get("name"):
+                profile_result["student_name"] = user_info["name"]
+
+        raw = profile_result.get("raw_fields", {})
+        for k, v in raw.items():
+            k_clean = str(k).lower().replace("ı", "i").replace("İ", "i").replace("ğ", "g").replace("ö", "o").replace("ü", "u").replace("ş", "s")
+            if "veli" in k_clean:
+                if not profile_result.get("parent_name"):
+                    profile_result["parent_name"] = v
+            elif "isim" in k_clean or "ad" in k_clean:
+                if not profile_result.get("student_name"):
+                    profile_result["student_name"] = v
+            elif "sinif" in k_clean:
+                if not profile_result.get("student_class"):
+                    profile_result["student_class"] = v
+            elif "numara" in k_clean or "no" in k_clean:
+                if not profile_result.get("student_no"):
+                    profile_result["student_no"] = v
+            elif "program" in k_clean:
+                if not profile_result.get("student_prog"):
+                    profile_result["student_prog"] = v
+
+        profile_result["name"] = profile_result.get("student_name") or "Öğrenci"
+        profile_result["class_code"] = profile_result.get("student_class") or ""
+        profile_result["class"] = profile_result.get("student_class") or ""
+        profile_result["student_no"] = profile_result.get("student_no") or ""
+
+        profile_result["photo_bytes"] = _try_download_photo_from_html_or_nav(fetched_html)
+
+        if profile_result["student_name"] or profile_result["parent_name"]:
+            _CACHED_PROFILE_DATA = profile_result
+            _CACHED_PROFILE_TIME = now
+
+        return profile_result
+
+
+def _fetch_dbs_only_list():
+    """studentGeneralList.php'den yalnızca DBS/DAS tarama sınavlarını hafif bir istekle çeker."""
+    payload = {
+        "request": "getStudentGeneralList",
+        "studentList": 0,
+        "teacherInfo": 0,
+        "exams": 0,
+        "dbs": 2,
+        "attendance": 0,
+        "exam": 0,
+        "homework": 0,
+        "course1": 0,
+        "course2": 0,
+        "library": 0
+    }
+    nav = get_nav_metadata()
+    role_base = nav.get("base", "pages/student/").strip("/")
+    endpoints = [
+        f"{akbim_api.BASEURL}/{role_base}/require/studentGeneralList.php",
+        f"{akbim_api.BASEURL}/pages/student/require/studentGeneralList.php",
+        f"{akbim_api.BASEURL}/pages/parent/require/studentGeneralList.php"
+    ]
+    seen = set()
+    for ep in endpoints:
+        if ep in seen:
             continue
-
-    # 3. Öncelik: nav metadata'sındaki user.name
-    user_info = nav.get("raw", {}).get("user", {})
-    if is_parent:
-        if not profile_result["parent_name"] and user_info.get("name"):
-            profile_result["parent_name"] = user_info["name"]
-    else:
-        if not profile_result["student_name"] and user_info.get("name"):
-            profile_result["student_name"] = user_info["name"]
-
-    # 4. Normalize and populate all standard field variants from raw_fields
-    raw = profile_result.get("raw_fields", {})
-    for k, v in raw.items():
-        k_clean = str(k).lower().replace("ı", "i").replace("İ", "i").replace("ğ", "g").replace("ö", "o").replace("ü", "u").replace("ş", "s")
-        if "veli" in k_clean:
-            if not profile_result.get("parent_name"):
-                profile_result["parent_name"] = v
-        elif "isim" in k_clean or "ad" in k_clean:
-            if not profile_result.get("student_name"):
-                profile_result["student_name"] = v
-        elif "sinif" in k_clean:
-            if not profile_result.get("student_class"):
-                profile_result["student_class"] = v
-        elif "numara" in k_clean or "no" in k_clean:
-            if not profile_result.get("student_no"):
-                profile_result["student_no"] = v
-        elif "program" in k_clean:
-            if not profile_result.get("student_prog"):
-                profile_result["student_prog"] = v
-
-    # Common standard aliases for convenience
-    profile_result["name"] = profile_result.get("student_name") or "Öğrenci"
-    profile_result["class_code"] = profile_result.get("student_class") or ""
-    profile_result["class"] = profile_result.get("student_class") or ""
-    profile_result["student_no"] = profile_result.get("student_no") or ""
-
-    # Fotoğrafı çek
-    profile_result["photo_bytes"] = fetch_student_photo_bytes()
-
-    return profile_result
+        seen.add(ep)
+        try:
+            res = akbim_api.session.post(ep, data=payload, headers={"X-Requested-With": "XMLHttpRequest"}, timeout=8)
+            if res.ok and res.text.strip().startswith("{"):
+                data = res.json()
+                if data.get("success"):
+                    students = data.get("data", {}).get("students", [])
+                    if students:
+                        return students[0].get("dbsInfo", {}).get("list", []) or []
+        except Exception:
+            pass
+    return []
 
 
-def fetch_all_student_exams(exam_type="SBS"):
+def fetch_all_student_exams(exam_type="SBS", force_refresh=False):
     """
     Öğrencinin girdiği tüm sınavların (Denemeler & DBS/DAS Taramalar) listesini çeker.
-    Hem examDashboard'dan SBS denemelerini hem de öğrenci genel raporundaki DAS taramalarını birleştirir.
+    Hem examDashboard'dan SBS denemelerini hem de öğrenci genel raporundaki DAS taramalarını paralel birleştirir.
     """
-    if not akbim_api.check_session():
-        if not ensure_valid_session():
-            return []
+    global _CACHED_EXAMS_TIME
+    cache_key = exam_type or "SBS"
+    now = time.time()
+    if not force_refresh and cache_key in _CACHED_EXAMS and (now - _CACHED_EXAMS_TIME < 120):
+        return _CACHED_EXAMS[cache_key]
 
-    combined_exams = []
+    from concurrent.futures import ThreadPoolExecutor
 
-    # 1. Deneme Sınavları (SBS)
     nav = get_nav_metadata()
     role_base = nav.get("base", "pages/student/").strip("/")
     candidate_urls = [
@@ -770,40 +854,44 @@ def fetch_all_student_exams(exam_type="SBS"):
         "X-Requested-With": "XMLHttpRequest",
         "Referer": f"{akbim_api.BASEURL}/{role_base}/index.php"
     }
-    payload = {"request": "getStudentExams", "examType": exam_type or "SBS"}
+    payload = {"request": "getStudentExams", "examType": cache_key}
 
-    for attempt in range(2):
-        for url in candidate_urls:
-            try:
-                res = akbim_api.session.post(url, data=payload, headers=headers)
-                if res.ok and res.text.strip().startswith("{"):
-                    data = res.json()
-                    if data.get("success"):
-                        global _CACHED_EXAM_DASHBOARD_META
-                        _CACHED_EXAM_DASHBOARD_META = {
-                            "kpi": data.get("kpi", {}),
-                            "lessonSuccess": data.get("lessonSuccess", []),
-                            "trend": data.get("trend", {}),
-                            "lessons": data.get("lessons", []),
-                        }
-                        sbs_list = data.get("exams", [])
-                        for item in sbs_list:
-                            item["examCategory"] = "Deneme Sınavı"
-                            item["isTarama"] = False
-                        combined_exams.extend(sbs_list)
-                        break
-            except Exception:
-                pass
-        if combined_exams:
-            break
-        if attempt == 0 and not ensure_valid_session():
-            break
+    def fetch_sbs():
+        sbs_result = []
+        for attempt in range(2):
+            seen_urls = set()
+            for url in candidate_urls:
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                try:
+                    res = akbim_api.session.post(url, data=payload, headers=headers, timeout=8)
+                    if res.ok and res.text.strip().startswith("{"):
+                        data = res.json()
+                        if data.get("success"):
+                            global _CACHED_EXAM_DASHBOARD_META
+                            _CACHED_EXAM_DASHBOARD_META = {
+                                "kpi": data.get("kpi", {}),
+                                "lessonSuccess": data.get("lessonSuccess", []),
+                                "trend": data.get("trend", {}),
+                                "lessons": data.get("lessons", []),
+                            }
+                            sbs_list = data.get("exams", [])
+                            for item in sbs_list:
+                                item["examCategory"] = "Deneme Sınavı"
+                                item["isTarama"] = False
+                            sbs_result.extend(sbs_list)
+                            return sbs_result
+                except Exception:
+                    pass
+            if attempt == 0 and not ensure_valid_session():
+                break
+        return sbs_result
 
-    # 2. Tarama Sınavları (DAS / DBS)
-    try:
-        gen_rep = get_student_general_report()
-        if gen_rep:
-            das_list = gen_rep.get("dbsInfo", {}).get("list", []) or []
+    def fetch_das():
+        das_items = []
+        try:
+            das_list = _fetch_dbs_only_list()
             for das in das_list:
                 s_name = das.get("sinavAd", "Tarama Sınavı")
                 s_date = das.get("sinavTarih", "")
@@ -813,13 +901,11 @@ def fetch_all_student_exams(exam_type="SBS"):
                 except Exception:
                     puan_val = 0.0
 
-                # Doğru, Yanlış ve Soru Sayılarını topla
                 t_d = sum(int(das.get(f"D{i}") or 0) for i in range(1, 11) if str(das.get(f"D{i}", "")).isdigit())
                 t_y = sum(int(das.get(f"Y{i}") or 0) for i in range(1, 11) if str(das.get(f"Y{i}", "")).isdigit())
                 t_ss = sum(int(das.get(f"SS{i}") or 0) for i in range(1, 11) if str(das.get(f"SS{i}", "")).isdigit())
                 net_val = round(t_d - (t_y / 3.0), 2)
 
-                # Ders listesi
                 das_lessons = []
                 for i in range(1, 11):
                     l_title = das.get(f"lesson{i}")
@@ -835,7 +921,7 @@ def fetch_all_student_exams(exam_type="SBS"):
                             "net": round(float(d_i) - (float(y_i) / 3.0), 2) if str(d_i).isdigit() and str(y_i).isdigit() else 0
                         })
 
-                combined_exams.append({
+                das_items.append({
                     "examId": s_name,
                     "examName": s_name,
                     "examDate": s_date,
@@ -853,19 +939,36 @@ def fetch_all_student_exams(exam_type="SBS"):
                     "dasDetail": das,
                     "dasLessons": das_lessons
                 })
-    except Exception as e:
-        print(f"Tarama sınavları çekme hatası: {e}")
+        except Exception as e:
+            print(f"Tarama sınavları çekme hatası: {e}")
+        return das_items
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        f_sbs = pool.submit(fetch_sbs)
+        f_das = pool.submit(fetch_das)
+        combined_exams = f_sbs.result() + f_das.result()
+
+    if combined_exams:
+        _CACHED_EXAMS[cache_key] = combined_exams
+        _CACHED_EXAMS_TIME = time.time()
 
     return combined_exams
 
 
 def fetch_exam_report(exam_id, exam_type="SBS"):
-    """Belirli bir sınavın karnesini, netlerini ve konu analizini Akbim'den çeker."""
+    """Belirli bir sınavın karnesini, netlerini ve konu analizini Akbim'den çeker (önbellekli)."""
+    cache_key = (str(exam_id), str(exam_type or "SBS"))
+    if cache_key in _CACHED_EXAM_REPORTS:
+        return _CACHED_EXAM_REPORTS[cache_key]
+
     profile = get_adaptive_profile_data()
     stu_no = profile.get("student_no") or "20669"
     class_id = profile.get("student_class") or "K-7-E"
 
+    nav = get_nav_metadata()
+    role_base = nav.get("base", "pages/student/").strip("/")
     endpoints = [
+        f"{akbim_api.BASEURL}/{role_base}/require/examDashboard.php",
         f"{akbim_api.BASEURL}/pages/student/require/examDashboard.php",
         f"{akbim_api.BASEURL}/pages/parent/require/examDashboard.php",
     ]
@@ -880,16 +983,21 @@ def fetch_exam_report(exam_id, exam_type="SBS"):
 
     headers = {
         "X-Requested-With": "XMLHttpRequest",
-        "Referer": f"{akbim_api.BASEURL}/pages/student/index.php"
+        "Referer": f"{akbim_api.BASEURL}/{role_base}/index.php"
     }
 
     for attempt in range(2):
+        seen = set()
         for ep in endpoints:
+            if ep in seen:
+                continue
+            seen.add(ep)
             try:
-                res = akbim_api.session.post(ep, data=payload, headers=headers)
-                if res.ok:
+                res = akbim_api.session.post(ep, data=payload, headers=headers, timeout=8)
+                if res.ok and res.text.strip().startswith("{"):
                     data = res.json()
                     if data.get("success"):
+                        _CACHED_EXAM_REPORTS[cache_key] = data
                         return data
             except Exception as e:
                 print(f"Karne çekme hatası ({ep}): {e}")
@@ -922,7 +1030,7 @@ def fetch_exam_lesson_answers(exam_index, lesson_place, exam_type="SBS"):
     }
 
     try:
-        res = akbim_api.session.post(url, data=payload, headers=headers)
+        res = akbim_api.session.post(url, data=payload, headers=headers, timeout=8)
         if res.ok:
             data = res.json()
             if data.get("success"):
@@ -933,11 +1041,12 @@ def fetch_exam_lesson_answers(exam_index, lesson_place, exam_type="SBS"):
     return None
 
 
-def fetch_food_list_data():
-    """Yemek listesi hash'ini ve binary PDF içeriğini çeker."""
-    if not akbim_api.check_session():
-        if not akbim_api.ensure_login():
-            return {"success": False, "hash": None, "pdf_bytes": None}
+def fetch_food_list_data(force_refresh=False):
+    """Yemek listesi hash'ini ve binary PDF içeriğini çeker (600 sn önbellekli)."""
+    global _CACHED_FOOD_DATA, _CACHED_FOOD_TIME
+    now = time.time()
+    if not force_refresh and _CACHED_FOOD_DATA and (now - _CACHED_FOOD_TIME < 600):
+        return _CACHED_FOOD_DATA
 
     nav = get_nav_metadata()
     base = nav.get("base", "pages/student/").strip("/")
@@ -946,34 +1055,41 @@ def fetch_food_list_data():
         f"{akbim_api.BASEURL}/pages/student/require/foodListAction.php",
     ]
 
-    seen = set()
-    for action_url in candidate_urls:
-        if action_url in seen:
-            continue
-        seen.add(action_url)
+    for attempt in range(2):
+        seen = set()
+        for action_url in candidate_urls:
+            if action_url in seen:
+                continue
+            seen.add(action_url)
 
-        try:
-            res = akbim_api.session.post(
-                action_url,
-                data={"request": "get-food-list"},
-                headers={"X-Requested-With": "XMLHttpRequest"}
-            )
-            if res.ok:
-                data = res.json()
-                f_hash = data.get("hash")
-                if f_hash:
-                    dl_res = akbim_api.session.get(
-                        f"{akbim_api.BASEURL}/download.php",
-                        params={"file": f_hash, "view": ""}
-                    )
-                    if dl_res.ok and len(dl_res.content) > 100:
-                        return {
-                            "success": True,
-                            "hash": f_hash,
-                            "pdf_bytes": dl_res.content
-                        }
-        except Exception:
-            continue
+            try:
+                res = akbim_api.session.post(
+                    action_url,
+                    data={"request": "get-food-list"},
+                    headers={"X-Requested-With": "XMLHttpRequest"},
+                    timeout=8
+                )
+                if res.ok and res.text.strip().startswith("{"):
+                    data = res.json()
+                    f_hash = data.get("hash")
+                    if f_hash:
+                        dl_res = akbim_api.session.get(
+                            f"{akbim_api.BASEURL}/download.php",
+                            params={"file": f_hash, "view": ""},
+                            timeout=10
+                        )
+                        if dl_res.ok and len(dl_res.content) > 100:
+                            _CACHED_FOOD_DATA = {
+                                "success": True,
+                                "hash": f_hash,
+                                "pdf_bytes": dl_res.content
+                            }
+                            _CACHED_FOOD_TIME = time.time()
+                            return _CACHED_FOOD_DATA
+            except Exception:
+                continue
+        if attempt == 0 and not ensure_valid_session():
+            break
 
     return {"success": False, "hash": None, "pdf_bytes": None}
 
@@ -1050,28 +1166,40 @@ def change_user_password(old_password, new_password, new_password_re):
     return {"success": False, "message": "Şifre değiştirme servisine ulaşılamadı."}
 
 
-def fetch_teachers_data():
-    """Öğrencinin dersine giren öğretmenlerin listesini ve fotoğraflarını çeker."""
+def fetch_teachers_data(force_refresh=False):
+    """Öğrencinin dersine giren öğretmenlerin listesini ve fotoğraflarını çeker (300 sn önbellekli)."""
+    global _CACHED_TEACHERS, _CACHED_TEACHERS_TIME
+    now = time.time()
+    if not force_refresh and _CACHED_TEACHERS is not None and (now - _CACHED_TEACHERS_TIME < 300):
+        return _CACHED_TEACHERS
+
     nav = get_nav_metadata()
     role_base = nav.get("base", "pages/student/").strip("/")
-    
+
     candidate_endpoints = [
         f"{akbim_api.BASEURL}/{role_base}/require/teacherAction.php",
         f"{akbim_api.BASEURL}/pages/student/require/teacherAction.php",
     ]
 
     for attempt in range(2):
+        seen = set()
         for ep in candidate_endpoints:
+            if ep in seen:
+                continue
+            seen.add(ep)
             try:
                 res = akbim_api.session.post(
                     ep,
                     data={"request": "loadMyOwnTeachers"},
-                    headers={"X-Requested-With": "XMLHttpRequest"}
+                    headers={"X-Requested-With": "XMLHttpRequest"},
+                    timeout=8
                 )
                 if res.ok and res.text.strip().startswith("{"):
                     data = res.json()
                     if data.get("success"):
-                        return data.get("data", [])
+                        _CACHED_TEACHERS = data.get("data", [])
+                        _CACHED_TEACHERS_TIME = time.time()
+                        return _CACHED_TEACHERS
             except Exception:
                 pass
 
@@ -1090,39 +1218,39 @@ def fetch_events_data():
 
 def fetch_messages_data(box_type=None):
     """Gelen kutusu ve gönderilen postaları çeker (oturum düşerse otomatik yeniler)."""
-    inbox_data = {}
-    sent_data = {}
+    from concurrent.futures import ThreadPoolExecutor
+
     for attempt in range(2):
         try:
-            inbox_res = akbim_api.session.get(f"{akbim_api.BASEURL}/obsapi/mail/getInbox")
-            if inbox_res.ok:
-                inbox_data = inbox_res.json()
-                if isinstance(inbox_data, dict) and inbox_data.get("error") == "Login required":
-                    if attempt == 0 and ensure_valid_session():
-                        continue
-                    else:
-                        notify_session_expired("Oturumunuz sona erdi. Lütfen tekrar giriş yapın.")
-                        break
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                f_in = pool.submit(akbim_api.session.get, f"{akbim_api.BASEURL}/obsapi/mail/getInbox", timeout=8)
+                f_sent = pool.submit(akbim_api.session.get, f"{akbim_api.BASEURL}/obsapi/mail/getSentMail", timeout=8)
+                inbox_res = f_in.result()
+                sent_res = f_sent.result()
 
-            sent_res = akbim_api.session.get(f"{akbim_api.BASEURL}/obsapi/mail/getSentMail")
-            if sent_res.ok:
-                sent_data = sent_res.json()
-            break
+            inbox_data = inbox_res.json() if inbox_res.ok else {}
+            if isinstance(inbox_data, dict) and inbox_data.get("error") == "Login required":
+                if attempt == 0 and ensure_valid_session():
+                    continue
+                else:
+                    notify_session_expired("Oturumunuz sona erdi. Lütfen tekrar giriş yapın.")
+                    break
+
+            sent_data = sent_res.json() if sent_res.ok else {}
+            inbox_mails = inbox_data.get("data", {}).get("mail", []) if isinstance(inbox_data, dict) else []
+            sent_mails = sent_data.get("data", {}).get("mail", []) if isinstance(sent_data, dict) else []
+            counts = inbox_data.get("data", {}).get("count", {}) if isinstance(inbox_data, dict) else {}
+            if box_type in ("inbox", "gelen"):
+                return inbox_mails
+            elif box_type in ("sent", "outbox", "giden"):
+                return sent_mails
+            return inbox_mails, sent_mails, counts
         except Exception as e:
             print(f"Mesaj listesi çekme hatası: {e}")
             if attempt == 0 and not ensure_valid_session():
                 break
 
-    inbox_mails = inbox_data.get("data", {}).get("mail", []) if isinstance(inbox_data, dict) else []
-    sent_mails = sent_data.get("data", {}).get("mail", []) if isinstance(sent_data, dict) else []
-    counts = inbox_data.get("data", {}).get("count", {}) if isinstance(inbox_data, dict) else {}
-
-    if box_type in ("inbox", "gelen"):
-        return inbox_mails
-    elif box_type in ("sent", "outbox", "giden"):
-        return sent_mails
-
-    return inbox_mails, sent_mails, counts
+    return [], [], {}
 
 
 def fetch_mail_content(mail_id):
@@ -1134,7 +1262,8 @@ def fetch_mail_content(mail_id):
         try:
             res = akbim_api.session.post(
                 f"{akbim_api.BASEURL}/obsapi/mail/getMailContent",
-                data={"mailId": mail_id}
+                data={"mailId": mail_id},
+                timeout=8
             )
             if res.ok:
                 data = res.json()
@@ -1185,15 +1314,21 @@ def send_mail_message(title, content, receiver_user_type, receiver_user_id, repl
     return {"success": False, "msg": "Mesaj gönderilemedi."}
 
 
+def fetch_homeworks_list(force_refresh=False):
+    """Ödevler listesini çeker (60 sn önbellekli, oturum düşerse otomatik yeniler)."""
+    global _CACHED_HOMEWORKS, _CACHED_HOMEWORKS_TIME
+    now = time.time()
+    if not force_refresh and _CACHED_HOMEWORKS is not None and (now - _CACHED_HOMEWORKS_TIME < 60):
+        return _CACHED_HOMEWORKS
 
-def fetch_homeworks_list():
-    """Ödevler listesini çeker (akbim_api.homeworks() kullanarak, oturum düşerse otomatik yeniler)."""
     for attempt in range(2):
         try:
             res = akbim_api.homeworks()
             if isinstance(res, dict):
                 if res.get("success"):
-                    return res.get("data", [])
+                    _CACHED_HOMEWORKS = res.get("data", [])
+                    _CACHED_HOMEWORKS_TIME = time.time()
+                    return _CACHED_HOMEWORKS
                 elif res.get("error") == "Login required":
                     if attempt == 0 and ensure_valid_session():
                         continue
@@ -1201,7 +1336,9 @@ def fetch_homeworks_list():
                         notify_session_expired("Oturumunuz sona erdi. Lütfen tekrar giriş yapın.")
                         break
             elif isinstance(res, list):
-                return res
+                _CACHED_HOMEWORKS = res
+                _CACHED_HOMEWORKS_TIME = time.time()
+                return _CACHED_HOMEWORKS
         except Exception as e:
             print(f"Ödevler listesi çekme hatası: {e}")
             if attempt == 0 and not ensure_valid_session():
@@ -1210,14 +1347,22 @@ def fetch_homeworks_list():
 
 
 def fetch_homework_detail(homework_id):
-    """Belirli bir ödevin detaylarını ve açıklamalarını çeker (oturum düşerse otomatik yeniler)."""
+    """Belirli bir ödevin detaylarını ve açıklamalarını çeker (önbellekli)."""
+    if homework_id in _CACHED_HOMEWORK_DETAILS:
+        return _CACHED_HOMEWORK_DETAILS[homework_id]
+
     for attempt in range(2):
         try:
-            res = akbim_api.session.get(f"{akbim_api.BASEURL}/obsapi/homework/getHomeworkDetail?id={homework_id}")
+            res = akbim_api.session.get(
+                f"{akbim_api.BASEURL}/obsapi/homework/getHomeworkDetail?id={homework_id}",
+                timeout=8
+            )
             if res.ok:
                 data = res.json()
                 if data.get("success"):
-                    return data.get("data", {})
+                    detail = data.get("data", {})
+                    _CACHED_HOMEWORK_DETAILS[homework_id] = detail
+                    return detail
                 elif data.get("error") == "Login required":
                     if attempt == 0 and ensure_valid_session():
                         continue
@@ -1236,25 +1381,23 @@ def download_homework_attachment(homework_id, file_id, file_hash=None, file_type
     file_hash varsa doğrudan download.php üzerinden hızlıca çeker, gerekirse token yöntemine geri döner.
     """
     try:
-        # 1. Hızlı ve doğrudan hash yöntemi (Arşiv swift istemcisi standardı)
         if file_hash:
-            dl_res = akbim_api.session.get(f"{akbim_api.BASEURL}/download.php?file={file_hash}")
+            dl_res = akbim_api.session.get(f"{akbim_api.BASEURL}/download.php?file={file_hash}", timeout=10)
             if dl_res.ok and len(dl_res.content) > 0:
                 return dl_res.content, None
 
-        # 2. Token tabanlı yöntem (Fallback)
         params = {
             "homeworkId": homework_id,
             "fileId": file_id,
             "fileType": file_type
         }
-        token_res = akbim_api.session.get(f"{akbim_api.BASEURL}/obsapi/homework/getHomeworkFileToken", params=params)
+        token_res = akbim_api.session.get(f"{akbim_api.BASEURL}/obsapi/homework/getHomeworkFileToken", params=params, timeout=8)
         if token_res.ok:
             token_data = token_res.json()
             token = token_data.get("token")
             if token:
                 dl_url = f"{akbim_api.BASEURL}/obsapi/public/downloadFileByToken?f={token}"
-                dl_res = akbim_api.session.get(dl_url)
+                dl_res = akbim_api.session.get(dl_url, timeout=10)
                 if dl_res.ok and len(dl_res.content) > 0:
                     return dl_res.content, None
 
@@ -1274,20 +1417,21 @@ def fetch_attendance_data():
             init_res = akbim_api.session.post(
                 endpoint,
                 data={"request": "load-attendance-initial-data"},
-                headers={"X-Requested-With": "XMLHttpRequest"}
+                headers={"X-Requested-With": "XMLHttpRequest"},
+                timeout=8
             )
             if init_res.ok and init_res.text.strip().startswith("{"):
                 init_data = init_res.json()
                 periods = init_data.get("periods", [])
                 period_id = periods[0].get("id") if periods else None
-                
-                # Devamsızlık detay listesini çek (varsa)
+
                 absence_list = []
                 if period_id is not None:
                     list_res = akbim_api.session.post(
                         endpoint,
                         data={"request": "get-attendance-graph-7", "periodId": period_id},
-                        headers={"X-Requested-With": "XMLHttpRequest"}
+                        headers={"X-Requested-With": "XMLHttpRequest"},
+                        timeout=8
                     )
                     if list_res.ok and list_res.text.strip().startswith("{"):
                         absence_list = list_res.json().get("list", []) or []
@@ -1333,7 +1477,7 @@ def get_student_general_report():
     for attempt in range(2):
         for ep in endpoints:
             try:
-                res = akbim_api.session.post(ep, data=payload, headers={"X-Requested-With": "XMLHttpRequest"})
+                res = akbim_api.session.post(ep, data=payload, headers={"X-Requested-With": "XMLHttpRequest"}, timeout=8)
                 if res.ok and res.text.strip().startswith("{"):
                     data = res.json()
                     if data.get("success"):
@@ -1381,7 +1525,7 @@ def fetch_system_notifications():
     """
     for attempt in range(2):
         try:
-            res = akbim_api.session.get(f"{akbim_api.BASEURL}/obsapi/notification/list")
+            res = akbim_api.session.get(f"{akbim_api.BASEURL}/obsapi/notification/list", timeout=8)
             if res.ok:
                 data = res.json()
                 if data.get("success"):
@@ -1407,12 +1551,17 @@ def fetch_borrowed_books():
         f"{akbim_api.BASEURL}/pages/parent/require/libraryAction.php",
     ]
     for attempt in range(2):
+        seen = set()
         for ep in candidate_endpoints:
+            if ep in seen:
+                continue
+            seen.add(ep)
             try:
                 res = akbim_api.session.post(
                     ep,
                     data={"request": "loadBorrowedBookList"},
-                    headers={"X-Requested-With": "XMLHttpRequest"}
+                    headers={"X-Requested-With": "XMLHttpRequest"},
+                    timeout=8
                 )
                 if res.ok and res.text.strip().startswith("{"):
                     data = res.json()
@@ -1436,12 +1585,17 @@ def search_library_books(query):
         f"{akbim_api.BASEURL}/pages/student/require/libraryAction.php",
         f"{akbim_api.BASEURL}/pages/parent/require/libraryAction.php",
     ]
+    seen = set()
     for ep in candidate_endpoints:
+        if ep in seen:
+            continue
+        seen.add(ep)
         try:
             res = akbim_api.session.post(
                 ep,
                 data={"request": "searchBook", "query": query},
-                headers={"X-Requested-With": "XMLHttpRequest"}
+                headers={"X-Requested-With": "XMLHttpRequest"},
+                timeout=8
             )
             if res.ok and res.text.strip().startswith("{"):
                 data = res.json()
@@ -1464,12 +1618,17 @@ def fetch_course_dashboard():
         f"{akbim_api.BASEURL}/pages/parent/require/courseDashboard.php",
     ]
     for attempt in range(2):
+        seen = set()
         for ep in candidate_endpoints:
+            if ep in seen:
+                continue
+            seen.add(ep)
             try:
                 res = akbim_api.session.post(
                     ep,
                     data={"request": "loadCourseDashboard"},
-                    headers={"X-Requested-With": "XMLHttpRequest"}
+                    headers={"X-Requested-With": "XMLHttpRequest"},
+                    timeout=8
                 )
                 if res.ok and res.text.strip().startswith("{"):
                     data = res.json()
@@ -1485,6 +1644,7 @@ def fetch_course_dashboard():
 def fetch_etut_records():
     """
     Öğrencinin kayıtlı etüt ve birebir ders listesini çeker.
+    Boş liste dönse bile 'success: True' yanıtını kabul eder (gereksiz 18 tekrarlı isteği önler).
     """
     records = {"etut": [], "birebir": [], "counseling": []}
     nav = get_nav_metadata()
@@ -1494,47 +1654,33 @@ def fetch_etut_records():
         f"{akbim_api.BASEURL}/pages/student/require/indexData.php",
         f"{akbim_api.BASEURL}/pages/parent/require/indexData.php",
     ]
+    loaded_keys = set()
     for attempt in range(2):
+        seen = set()
         for ep in candidate_endpoints:
+            if ep in seen:
+                continue
+            seen.add(ep)
             try:
-                # Etüt listesi
-                if not records["etut"]:
-                    r_etut = akbim_api.session.post(
+                for key in ("etut", "birebir", "counseling"):
+                    if key in loaded_keys:
+                        continue
+                    r = akbim_api.session.post(
                         ep,
-                        data={"data": "etut"},
-                        headers={"X-Requested-With": "XMLHttpRequest"}
+                        data={"data": key},
+                        headers={"X-Requested-With": "XMLHttpRequest"},
+                        timeout=8
                     )
-                    if r_etut.ok and r_etut.text.strip().startswith("{"):
-                        d = r_etut.json()
-                        if d.get("success"):
-                            records["etut"] = d.get("data", [])
-
-                # Birebir listesi
-                if not records["birebir"]:
-                    r_bir = akbim_api.session.post(
-                        ep,
-                        data={"data": "birebir"},
-                        headers={"X-Requested-With": "XMLHttpRequest"}
-                    )
-                    if r_bir.ok and r_bir.text.strip().startswith("{"):
-                        d = r_bir.json()
-                        if d.get("success"):
-                            records["birebir"] = d.get("data", [])
-
-                # Rehberlik / Görüşmeler
-                if not records["counseling"]:
-                    r_coun = akbim_api.session.post(
-                        ep,
-                        data={"data": "counseling"},
-                        headers={"X-Requested-With": "XMLHttpRequest"}
-                    )
-                    if r_coun.ok and r_coun.text.strip().startswith("{"):
-                        d = r_coun.json()
-                        if d.get("success"):
-                            records["counseling"] = d.get("data", [])
+                    if r.ok and r.text.strip().startswith("{"):
+                        d = r.json()
+                        if d.get("success") or "data" in d:
+                            records[key] = d.get("data", []) or []
+                            loaded_keys.add(key)
             except Exception:
                 pass
-        if records["etut"] or records["birebir"] or records["counseling"]:
+            if len(loaded_keys) == 3:
+                return records
+        if loaded_keys:
             return records
         if attempt == 0 and not ensure_valid_session():
             break
@@ -1547,7 +1693,7 @@ def fetch_birebir_form_metadata():
     """
     for attempt in range(2):
         try:
-            r = akbim_api.session.get(f"{akbim_api.BASEURL}/pages/student/birebir.php")
+            r = akbim_api.session.get(f"{akbim_api.BASEURL}/pages/student/birebir.php", timeout=8)
             if r.ok:
                 from bs4 import BeautifulSoup
                 soup = BeautifulSoup(r.text, "html.parser")
@@ -1573,7 +1719,8 @@ def fetch_birebir_teachers(lesson_id):
             r = akbim_api.session.post(
                 f"{akbim_api.BASEURL}/pages/student/require/teacherlist.php",
                 data={"lessonid": str(lesson_id)},
-                headers={"X-Requested-With": "XMLHttpRequest"}
+                headers={"X-Requested-With": "XMLHttpRequest"},
+                timeout=8
             )
             if r.ok:
                 data = r.json()
@@ -1603,7 +1750,8 @@ def fetch_birebir_schedule(lesson_id, teacher_id, program_id="3", week="-1", yea
                     "year": str(year),
                     "courseType": str(course_type)
                 },
-                headers={"X-Requested-With": "XMLHttpRequest"}
+                headers={"X-Requested-With": "XMLHttpRequest"},
+                timeout=8
             )
             if r.ok and r.text.strip():
                 data = r.json()
@@ -1655,14 +1803,15 @@ def get_effective_school_day_idx(dt=None):
     return effective_date.isoweekday()
 
 
-def fetch_classical_exams():
+def fetch_classical_exams(force_refresh=False):
     """
-    MEB Klasik Yazılı Sınav Notlarını (classicalExamDashboard.php) çeker.
+    MEB Klasik Yazılı Sınav Notlarını (classicalExamDashboard.php) çeker (120 sn önbellekli).
     1. Dönem ve 2. Dönem yazılı notları, sınıf ortalamaları ve ders bazlı sonuçları döner.
     """
-    if not akbim_api.check_session():
-        if not ensure_valid_session():
-            return {}
+    global _CACHED_CLASSICAL_EXAMS, _CACHED_CLASSICAL_TIME
+    now = time.time()
+    if not force_refresh and _CACHED_CLASSICAL_EXAMS is not None and (now - _CACHED_CLASSICAL_TIME < 120):
+        return _CACHED_CLASSICAL_EXAMS
 
     nav = get_nav_metadata()
     role_base = nav.get("base", "pages/student/").strip("/")
@@ -1673,12 +1822,17 @@ def fetch_classical_exams():
     }
     payload = {"request": "get-classical-exam-initial-data"}
 
-    try:
-        res = akbim_api.session.post(url, data=payload, headers=headers, timeout=8)
-        if res.ok and res.text.strip().startswith("{"):
-            return res.json()
-    except Exception:
-        pass
+    for attempt in range(2):
+        try:
+            res = akbim_api.session.post(url, data=payload, headers=headers, timeout=8)
+            if res.ok and res.text.strip().startswith("{"):
+                _CACHED_CLASSICAL_EXAMS = res.json()
+                _CACHED_CLASSICAL_TIME = time.time()
+                return _CACHED_CLASSICAL_EXAMS
+        except Exception:
+            pass
+        if attempt == 0 and not ensure_valid_session():
+            break
     return {}
 
 
@@ -1940,7 +2094,6 @@ def fetch_newsletters_data():
     return []
 
 
-# Aliases for PyQt6 and general frontend convenience
+# Aliases for frontend convenience
 fetch_homework_data = fetch_homeworks_list
 fetch_exams_data = fetch_all_student_exams
-

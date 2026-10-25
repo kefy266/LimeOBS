@@ -70,4 +70,38 @@ echo "=== 4. AppImage Oluşturma ==="
 ARCH=x86_64 "$PROJECT_DIR/tools/squashfs-root/AppRun" "$APPDIR" "$OUT_DIR/LimeOBS-x86_64.AppImage"
 
 chmod +x "$OUT_DIR/LimeOBS-x86_64.AppImage"
+
+# Yerel masaüstü (KRunner / Uygulama Menüsü) entegrasyonunu güncelle
+mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
+cat << EOF > "$HOME/.local/bin/limeobs"
+#!/usr/bin/env bash
+if [ -x "$PROJECT_DIR/venv/bin/python" ] && [ -f "$PROJECT_DIR/akbim_frontend/main.py" ]; then
+    exec "$PROJECT_DIR/venv/bin/python" "$PROJECT_DIR/akbim_frontend/main.py" "\$@"
+elif [ -x "$OUT_DIR/LimeOBS-x86_64.AppImage" ]; then
+    exec "$OUT_DIR/LimeOBS-x86_64.AppImage" "\$@"
+fi
+EOF
+chmod +x "$HOME/.local/bin/limeobs"
+
+cat << EOF > "$HOME/.local/share/applications/com.kagan.limeobs.desktop"
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=LimeOBS
+GenericName=Öğrenci Bilgi Sistemi
+Comment=Modern ve Akıcı Okul Yönetim Paneli
+Exec=$HOME/.local/bin/limeobs
+TryExec=$HOME/.local/bin/limeobs
+Icon=com.kagan.limeobs
+Terminal=false
+Categories=Education;
+Keywords=limeobs;obs;akbim;tedem;okul;öğrenci;ders;sınav;
+StartupWMClass=com.kagan.limeobs
+StartupNotify=true
+EOF
+chmod +x "$HOME/.local/share/applications/com.kagan.limeobs.desktop"
+update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+kbuildsycoca6 2>/dev/null || true
+
 echo "=== BAŞARILI: $OUT_DIR/LimeOBS-x86_64.AppImage oluşturuldu ==="
+
