@@ -210,8 +210,16 @@ def unpack_vault_payload(vault_dict: Dict[str, Any]) -> Optional[Dict[str, Any]]
         key = _get_device_secret()
         expected_sig = hmac.new(key, blob.encode('utf-8'), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(sig, expected_sig):
-            print("[Güvenlik Uyarısı] Kasa HMAC bütünlük kontrolü başarısız! Dosya tahrif edilmiş olabilir.")
-            return None
+            # Geriye dönük uyumluluk (v1 anahtar kontrolü)
+            uname = os.environ.get('USERNAME', os.environ.get('USER', 'default_user'))
+            comp = os.environ.get('COMPUTERNAME', 'default_pc')
+            key_v1 = hashlib.sha256(f"limeobs-secure-salt-{uname}-{comp}".encode('utf-8')).digest()
+            key_v1_alt = hashlib.sha256(f"limeobs-device-vault-key::{uname}::{comp}::v1".encode('utf-8')).digest()
+            sig_v1 = hmac.new(key_v1, blob.encode('utf-8'), hashlib.sha256).hexdigest()
+            sig_v1_alt = hmac.new(key_v1_alt, blob.encode('utf-8'), hashlib.sha256).hexdigest()
+            if not (hmac.compare_digest(sig, sig_v1) or hmac.compare_digest(sig, sig_v1_alt)):
+                print("[Güvenlik Uyarısı] Kasa HMAC bütünlük kontrolü başarısız! Dosya tahrif edilmiş olabilir.")
+                return None
 
         decrypted_json = decrypt_string(blob)
         return json.loads(decrypted_json)

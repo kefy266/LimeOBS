@@ -40,15 +40,17 @@ a = Analysis(
 pyz = PYZ(a.pure)
 
 if IS_WIN:
-    # Windows: tek dosyalık LimeOBS.exe
+    # Windows: onedir taşınabilir klasör (Smart App Control engellerini önlemek için)
     win_icon = str(ROOT / "akbim_frontend" / "app_icon.ico") if (ROOT / "akbim_frontend" / "app_icon.ico").exists() else str(ROOT / "akbim_frontend" / "app_icon.png")
     exe = EXE(
-        pyz, a.scripts, a.binaries, a.datas, [],
+        pyz, a.scripts, [],
+        exclude_binaries=True,
         name="LimeOBS",
         icon=win_icon,
         console=False,
         upx=False,
     )
+    coll = COLLECT(exe, a.binaries, a.datas, name="LimeOBS", upx=False)
 else:
     name = "LimeOBS" if IS_MAC else "limeobs-bin"
     exe = EXE(

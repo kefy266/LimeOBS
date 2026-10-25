@@ -101,13 +101,15 @@ jobs:
       - name: Python paketleri
         run: pip install --break-system-packages keyring pypdf
 
-      - name: .exe derle
-        run: pyinstaller --noconfirm --clean limeobs.spec
+      - name: Taşınabilir paket derle
+        run: |
+          pyinstaller --noconfirm --clean limeobs.spec
+          python -c "import shutil; shutil.make_archive('LimeOBS-Windows-Portable', 'zip', 'dist', 'LimeOBS')"
 
       - uses: actions/upload-artifact@v5
         with:
           name: LimeOBS-Windows
-          path: dist/LimeOBS.exe
+          path: LimeOBS-Windows-Portable.zip
 
   release:
     name: GitHub Release
@@ -126,4 +128,4 @@ jobs:
           files: |
             out/LimeOBS-x86_64.AppImage
             out/LimeOBS-macOS-arm64.zip
-            out/LimeOBS.exe
+            out/LimeOBS-Windows-Portable.zip
