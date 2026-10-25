@@ -2,7 +2,7 @@
 chcp 65001 >nul
 title LimeOBS Windows Derleyici
 echo ======================================================================
-echo  🍋 LimeOBS Windows Standalone EXE Derleyici (PyQt6 + PyInstaller)
+echo  🍋 LimeOBS Windows Standalone EXE Derleyici (GTK4 + PyInstaller)
 echo ======================================================================
 echo.
 cd /d "%~dp0"
@@ -21,13 +21,13 @@ echo [*] Eski calisan surecler kontrol ediliyor...
 taskkill /F /IM LimeOBS.exe >nul 2>&1
 
 echo [*] LimeOBS Windows bagimsiz (.exe) paketi olusturuluyor...
-pyinstaller --noconfirm limeobs_qt.spec
+pyinstaller --noconfirm --clean limeobs.spec
 
 if %errorlevel% equ 0 (
     echo.
     echo ======================================================================
     echo  [BASARILI] Derleme tamamlandi!
-    echo  Uygulama: dist\LimeOBS\LimeOBS.exe
+    echo  Uygulama: dist\LimeOBS.exe
     echo ======================================================================
 ) else (
     echo.
