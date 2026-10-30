@@ -68,10 +68,29 @@ jobs:
           venv/bin/pyinstaller --noconfirm --clean limeobs.spec
           ditto -c -k --keepParent dist/LimeOBS.app LimeOBS-macOS-arm64.zip
 
+      - name: .dmg oluştur (Uygulamalar kısayollu)
+        run: |
+          brew install create-dmg
+          # 1x ve 2x arka planı Retina uyumlu tek TIFF'te birleştir
+          tiffutil -cathidpicheck packaging/macos/dmg-background.png packaging/macos/dmg-background@2x.png -out dmg-bg.tiff
+          mkdir dmg-src && cp -R dist/LimeOBS.app dmg-src/
+          ARGS=(--volname "LimeOBS" --volicon akbim_frontend/app_icon.icns
+                --background dmg-bg.tiff --window-pos 200 120 --window-size 660 428
+                --icon-size 112 --icon "LimeOBS.app" 165 185 --hide-extension "LimeOBS.app"
+                --app-drop-link 495 185 --hdiutil-retries 10)
+          # Finder pencere düzeni AppleScript ile yapılır; CI'da takılırsa düzensiz ama çalışan DMG üret
+          if ! perl -e 'alarm shift; exec @ARGV' 300 create-dmg "${ARGS[@]}" LimeOBS-macOS-arm64.dmg dmg-src/; then
+            rm -f LimeOBS-macOS-arm64.dmg rw.*.dmg
+            create-dmg "${ARGS[@]}" --skip-jenkins LimeOBS-macOS-arm64.dmg dmg-src/
+          fi
+          hdiutil verify LimeOBS-macOS-arm64.dmg
+
       - uses: actions/upload-artifact@v5
         with:
           name: LimeOBS-macOS
-          path: LimeOBS-macOS-arm64.zip
+          path: |
+            LimeOBS-macOS-arm64.dmg
+            LimeOBS-macOS-arm64.zip
 
   windows:
     name: Windows (.exe)
@@ -127,5 +146,6 @@ jobs:
           generate_release_notes: true
           files: |
             out/LimeOBS-x86_64.AppImage
+            out/LimeOBS-macOS-arm64.dmg
             out/LimeOBS-macOS-arm64.zip
             out/LimeOBS-Windows-Portable.zip
