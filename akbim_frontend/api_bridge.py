@@ -109,6 +109,24 @@ def save_credentials(tc, password):
         print(f"[Güvenlik] Kimlik bilgisi kaydetme hatası: {e}")
 
 
+def _move_file_vault_to_keyring(cfg, creds):
+    """Eski sürümlerin diske yazdığı şifreli kopyayı, sistem anahtarlığı varsa oraya taşıyıp diskten siler."""
+    if "blob" not in cfg.get("secure_vault", {}) or security.keyring is None:
+        return
+    try:
+        payload = security.generate_vault_payload(creds)
+        if payload.get("format") == "system_keyring":
+            cfg["secure_vault"] = payload
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, ensure_ascii=False, indent=2)
+            try:
+                security.keyring.delete_password("limeobs", "saved_creds")
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[Güvenlik] Kasa taşıma hatası: {e}")
+
+
 def get_saved_credentials():
     """Kayıtlı kimlik bilgilerini kriptografik kasadan çözer ve HMAC bütünlüğünü doğrular."""
     if CONFIG_FILE.exists():
@@ -120,6 +138,7 @@ def get_saved_credentials():
             if "secure_vault" in cfg:
                 creds = security.unpack_vault_payload(cfg["secure_vault"])
                 if creds:
+                    _move_file_vault_to_keyring(cfg, creds)
                     return creds
                 else:
                     print("[Güvenlik Uyarısı] Kasa açılamadı veya HMAC doğrulaması başarısız oldu!")
@@ -412,6 +431,7 @@ def clear_cache():
     global _CACHED_CLASSICAL_EXAMS, _CACHED_CLASSICAL_TIME
     global _CACHED_TEACHERS, _CACHED_TEACHERS_TIME
     global _last_session_status, _last_session_check_time
+    _CACHED_MAIL_CONTENTS.clear()
     _CACHED_PHOTO_BYTES = None
     _PHOTO_FETCH_ATTEMPTED = False
     _CURRENT_VIEW_MODE = None
@@ -1253,11 +1273,18 @@ def fetch_messages_data(box_type=None):
     return [], [], {}
 
 
+# Gönderilmiş/alınmış bir postanın içeriği değişmediği için mail id başına bir kez çekilir.
+_CACHED_MAIL_CONTENTS = {}
+
+
 def fetch_mail_content(mail_id):
     """
     Belirli bir postanın tam metnini ve ek dosya bilgilerini çeker (oturum düşerse otomatik yeniler).
     POST /obsapi/mail/getMailContent with {"mailId": mail_id}
     """
+    cached = _CACHED_MAIL_CONTENTS.get(mail_id)
+    if cached is not None:
+        return cached
     for attempt in range(2):
         try:
             res = akbim_api.session.post(
@@ -1268,7 +1295,9 @@ def fetch_mail_content(mail_id):
             if res.ok:
                 data = res.json()
                 if data.get("success"):
-                    return data.get("data", {}).get("mailContent", {})
+                    content = data.get("data", {}).get("mailContent", {})
+                    _CACHED_MAIL_CONTENTS[mail_id] = content
+                    return content
                 elif data.get("error") == "Login required":
                     if attempt == 0 and ensure_valid_session():
                         continue

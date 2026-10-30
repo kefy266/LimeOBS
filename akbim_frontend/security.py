@@ -33,6 +33,9 @@ try:
 except ImportError:
     keyring = None
 
+KEYRING_SERVICE = "LimeOBS"
+KEYRING_USER = "saved_creds"
+
 # Windows DPAPI desteği
 if sys.platform == "win32":
     import ctypes
@@ -72,14 +75,29 @@ def _get_system_machine_id() -> str:
     return ""
 
 
-def _get_device_secret() -> bytes:
-    """İşletim sistemine, makine donanımına ve mevcut oturum kullanıcısına özgü anahtar türetir."""
+def _device_secret_for(comp: str) -> bytes:
     uname = os.environ.get('USERNAME', os.environ.get('USER', 'default_user'))
-    comp = os.environ.get('COMPUTERNAME', os.environ.get('HOSTNAME', 'default_host'))
     mid = _get_system_machine_id()
-    
     raw = f"limeobs-vault::{uname}::{comp}::{mid}::v2"
     return hashlib.sha256(raw.encode('utf-8')).digest()
+
+
+def _get_device_secret() -> bytes:
+    """İşletim sistemine, makine donanımına ve mevcut oturum kullanıcısına özgü anahtar türetir."""
+    import socket
+    comp = os.environ.get('COMPUTERNAME') or socket.gethostname() or 'default_host'
+    return _device_secret_for(comp)
+
+
+def _candidate_device_secrets():
+    """Önce güncel anahtar; ardından HOSTNAME ortam değişkenine bağlı eski sürümlerin anahtarları."""
+    keys = [_get_device_secret()]
+    for comp in (os.environ.get('HOSTNAME'), 'default_host'):
+        if comp:
+            k = _device_secret_for(comp)
+            if k not in keys:
+                keys.append(k)
+    return keys
 
 
 def encrypt_string(data: str) -> str:
@@ -117,7 +135,7 @@ def encrypt_string(data: str) -> str:
     return 'pbkdf2_v2:' + base64.b64encode(nonce + cipher).decode('ascii')
 
 
-def decrypt_string(token: str) -> str:
+def decrypt_string(token: str, key: Optional[bytes] = None) -> str:
     """Şifreli belirteci çözer."""
     if not token:
         return ""
@@ -149,7 +167,7 @@ def decrypt_string(token: str) -> str:
         raw_b64 = token[prefix_len:]
         data = base64.b64decode(raw_b64)
         nonce, cipher = data[:16], data[16:]
-        key = _get_device_secret()
+        key = key or _get_device_secret()
         keystream = hashlib.pbkdf2_hmac('sha256', key, nonce, iters, len(cipher))
         plain = bytes([a ^ b for a, b in zip(cipher, keystream)])
         return plain.decode('utf-8')
@@ -164,11 +182,15 @@ def generate_vault_payload(creds_dict: Dict[str, Any]) -> Dict[str, Any]:
     Ayrıca sistemde keyring (GNOME Keyring / Keychain) varsa oraya da güvenle yazar.
     """
     serialized = json.dumps(creds_dict, ensure_ascii=False)
-    
-    # Linux GNOME Keyring veya macOS Keychain varsa doğrudan işletim sistemi anahtarlığına yaz
+
+    # Sistem anahtarlığı (GNOME Keyring / KWallet / macOS Keychain / Windows Credential Manager)
+    # kullanılabiliyorsa bilgiler YALNIZCA orada tutulur. Dosya kasasının anahtarı makineden
+    # türetildiği için herkesin okuyabildiği bilgilerle çözülebilir; sadece yedek yöntemdir.
     if keyring is not None:
         try:
-            keyring.set_password("LimeOBS", "saved_creds", serialized)
+            keyring.set_password(KEYRING_SERVICE, KEYRING_USER, serialized)
+            if keyring.get_password(KEYRING_SERVICE, KEYRING_USER) == serialized:
+                return {"version": 2, "format": "system_keyring"}
         except Exception as e:
             print(f"[Güvenlik] Keyring kaydetme uyarısı: {e}")
 
@@ -193,7 +215,7 @@ def unpack_vault_payload(vault_dict: Dict[str, Any]) -> Optional[Dict[str, Any]]
     # 1. Linux GNOME Keyring / macOS Keychain kontrolü
     if keyring is not None:
         try:
-            saved = keyring.get_password("LimeOBS", "saved_creds")
+            saved = keyring.get_password(KEYRING_SERVICE, KEYRING_USER)
             if saved:
                 return json.loads(saved)
         except Exception:
@@ -207,9 +229,12 @@ def unpack_vault_payload(vault_dict: Dict[str, Any]) -> Optional[Dict[str, Any]]
             return None
 
         # HMAC-SHA256 Bütünlük / Kurcalama Doğrulaması
-        key = _get_device_secret()
-        expected_sig = hmac.new(key, blob.encode('utf-8'), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(sig, expected_sig):
+        key = None
+        for cand in _candidate_device_secrets():
+            if hmac.compare_digest(sig, hmac.new(cand, blob.encode('utf-8'), hashlib.sha256).hexdigest()):
+                key = cand
+                break
+        if key is None:
             # Geriye dönük uyumluluk (v1 anahtar kontrolü)
             uname = os.environ.get('USERNAME', os.environ.get('USER', 'default_user'))
             comp = os.environ.get('COMPUTERNAME', 'default_pc')
@@ -217,11 +242,15 @@ def unpack_vault_payload(vault_dict: Dict[str, Any]) -> Optional[Dict[str, Any]]
             key_v1_alt = hashlib.sha256(f"limeobs-device-vault-key::{uname}::{comp}::v1".encode('utf-8')).digest()
             sig_v1 = hmac.new(key_v1, blob.encode('utf-8'), hashlib.sha256).hexdigest()
             sig_v1_alt = hmac.new(key_v1_alt, blob.encode('utf-8'), hashlib.sha256).hexdigest()
-            if not (hmac.compare_digest(sig, sig_v1) or hmac.compare_digest(sig, sig_v1_alt)):
+            if hmac.compare_digest(sig, sig_v1):
+                key = key_v1
+            elif hmac.compare_digest(sig, sig_v1_alt):
+                key = key_v1_alt
+            else:
                 print("[Güvenlik Uyarısı] Kasa HMAC bütünlük kontrolü başarısız! Dosya tahrif edilmiş olabilir.")
                 return None
 
-        decrypted_json = decrypt_string(blob)
+        decrypted_json = decrypt_string(blob, key)
         return json.loads(decrypted_json)
     except Exception as e:
         print(f"[Güvenlik] Kasa çözme hatası: {e}")
@@ -231,7 +260,9 @@ def unpack_vault_payload(vault_dict: Dict[str, Any]) -> Optional[Dict[str, Any]]
 def clear_system_keyring():
     """Oturum kapatıldığında işletim sistemi anahtarlığından (GNOME Keyring vb.) kaydı siler."""
     if keyring is not None:
-        try:
-            keyring.delete_password("LimeOBS", "saved_creds")
-        except Exception:
-            pass
+        # "limeobs" eski sürümlerin kullandığı servis adı
+        for service in (KEYRING_SERVICE, "limeobs"):
+            try:
+                keyring.delete_password(service, KEYRING_USER)
+            except Exception:
+                pass

@@ -1,4 +1,5 @@
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -6,6 +7,9 @@ from gi.repository import Gtk, Adw, GLib
 
 from api_bridge import fetch_mail_content
 from views.compose_mail_dialog import open_compose_message_dialog
+
+# Giden kutusundaki alıcı adlarını çekerken sunucuya aynı anda en fazla 3 istek gönder
+_RECIPIENT_POOL = ThreadPoolExecutor(max_workers=3, thread_name_prefix="mail-recipient")
 
 
 class MessagesView(Gtk.ScrolledWindow):
@@ -347,6 +351,7 @@ class MessagesView(Gtk.ScrolledWindow):
                                     s_parts.append(cur_p[:60] + ("..." if len(cur_p) > 60 else ""))
                                 cur_row.set_subtitle("  •  ".join(s_parts))
                             GLib.idle_add(apply_rec_label)
-                threading.Thread(target=update_sent_row_recipient, args=(row, mail), daemon=True).start()
+                if not rec_val:
+                    _RECIPIENT_POOL.submit(update_sent_row_recipient, row, mail)
 
         self.container.append(sent_group)

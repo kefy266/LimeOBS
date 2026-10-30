@@ -176,7 +176,7 @@ class ClassicalExamsView(Gtk.ScrolledWindow):
             guide_group = Adw.PreferencesGroup()
             guide_group.set_title("Diğer Sınavlar")
             guide_row = Adw.ActionRow()
-            guide_row.set_title("Deneme Sınavları & DBS Taramalar")
+            guide_row.set_title("Deneme Sınavları &amp; DBS Taramalar")
             guide_row.set_subtitle("Girdiğiniz tüm deneme ve konu tarama sınav sonuçlarını 'Sınavlar' sekmesinden inceleyebilirsiniz.")
             guide_row.set_icon_name("emblem-documents-symbolic")
             guide_group.add(guide_row)

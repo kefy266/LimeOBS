@@ -137,6 +137,7 @@ class CommandPaletteDialog(Adw.Window):
 
         for cmd in items:
             row = Adw.ActionRow()
+            row.set_use_markup(False)
             row.set_title(cmd["title"])
             row.set_subtitle(cmd["subtitle"])
             row.set_icon_name(cmd.get("icon", "system-run-symbolic"))
