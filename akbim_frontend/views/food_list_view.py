@@ -407,8 +407,15 @@ class FoodListView(Gtk.ScrolledWindow):
 
         self.open_pdf_btn.set_sensitive(True)
 
+        # Sekmeye her girişte yeni kopya oluşuyordu; öncekini silip tek kopya tut
+        old_pdf = getattr(self, "temp_pdf_path", None)
+        if old_pdf:
+            try:
+                os.remove(old_pdf)
+            except OSError:
+                pass
         try:
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", prefix="limeobs_yemek_")
             tmp.write(pdf_bytes)
             tmp.close()
             self.temp_pdf_path = tmp.name
@@ -461,7 +468,7 @@ class FoodListView(Gtk.ScrolledWindow):
                 else:
                     today_tag = ""
 
-                day_group.set_title(f"📅 {day['date']}{today_tag}")
+                day_group.set_title(GLib.markup_escape_text(f"📅 {day['date']}{today_tag}"))
 
                 meals = day["meals"]
                 if not meals or all("TATİL" in m.upper() for m in meals):

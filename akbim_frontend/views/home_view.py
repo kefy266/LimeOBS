@@ -181,7 +181,7 @@ class HomeView(Gtk.ScrolledWindow):
         else:
             self.avatar.set_custom_image(None)
 
-        self.greeting_label.set_markup(f"<span size='xx-large' weight='bold'>Merhaba {first_name}</span>")
+        self.greeting_label.set_markup(f"<span size='xx-large' weight='bold'>Merhaba {GLib.markup_escape_text(str(first_name))}</span>")
         
         # Gün ve Durum Mesajı
         weekday = now.weekday()  # 0: Pzt .. 6: Paz
@@ -204,7 +204,7 @@ class HomeView(Gtk.ScrolledWindow):
         else:
             status_text = "Bu hafta bitti, haftaya hazırlan!"
 
-        self.subtitle_label.set_markup(f"<span size='medium' weight='500' foreground='#d0d0d0'>{status_text}</span>")
+        self.subtitle_label.set_markup(f"<span size='medium' weight='500' foreground='#d0d0d0'>{GLib.markup_escape_text(str(status_text))}</span>")
         months_tr = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
         days_tr = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
         formatted_date = f"{now.day} {months_tr[now.month - 1]} {now.year} {days_tr[now.weekday()]}"

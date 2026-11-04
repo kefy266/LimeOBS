@@ -25,7 +25,7 @@ class ExamReportWindow(Adw.Window):
         self.exam_index = exam_index
         self.exam_type = exam_type
 
-        self.set_title(f"Sınav Karnesi &amp; Detaylar — {exam_title}")
+        self.set_title(f"Sınav Karnesi & Detaylar — {exam_title}")
         self.set_transient_for(parent)
         self.set_modal(True)
         self.set_default_size(840, 720)
@@ -276,7 +276,7 @@ class ExamReportWindow(Adw.Window):
         info_box.set_margin_bottom(8)
 
         kitapcik_lbl = Gtk.Label()
-        kitapcik_lbl.set_markup(f"<b>Kitapçık:</b> <span color='#3584e4'>{paper_code}</span>")
+        kitapcik_lbl.set_markup(f"<b>Kitapçık:</b> <span color='#3584e4'>{GLib.markup_escape_text(str(paper_code))}</span>")
         info_box.append(kitapcik_lbl)
 
         # Doğru, Yanlış, Boş sayılarını hesapla

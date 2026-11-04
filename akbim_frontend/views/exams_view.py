@@ -523,12 +523,12 @@ class ExamsView(Gtk.ScrolledWindow):
                 date_txt = trend_labels[i] if i < len(trend_labels) else ""
 
                 lbl_step_name = Gtk.Label()
-                lbl_step_name.set_markup(f"<span size='smaller' weight='600'>{short_name}</span>")
+                lbl_step_name.set_markup(f"<span size='smaller' weight='600'>{GLib.markup_escape_text(str(short_name))}</span>")
                 lbl_step_name.set_halign(Gtk.Align.START)
                 txt_v.append(lbl_step_name)
 
                 lbl_step_val = Gtk.Label()
-                lbl_step_val.set_markup(f"<span size='small' foreground='#b8b8b8'>{date_txt} • <b>{p_val:.2f} Puan</b></span>")
+                lbl_step_val.set_markup(f"<span size='small' foreground='#b8b8b8'>{GLib.markup_escape_text(str(date_txt))} • <b>{p_val:.2f} Puan</b></span>")
                 lbl_step_val.set_halign(Gtk.Align.START)
                 txt_v.append(lbl_step_val)
 
@@ -639,7 +639,7 @@ class ExamsView(Gtk.ScrolledWindow):
                 top_line.append(icon)
 
                 name_lbl = Gtk.Label()
-                name_lbl.set_markup(f"<span weight='600'>{lname}</span>")
+                name_lbl.set_markup(f"<span weight='600'>{GLib.markup_escape_text(str(lname))}</span>")
                 name_lbl.set_halign(Gtk.Align.START)
                 name_lbl.set_hexpand(True)
                 top_line.append(name_lbl)
@@ -841,7 +841,7 @@ class ExamsView(Gtk.ScrolledWindow):
 
         top_h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         title_lbl = Gtk.Label()
-        title_lbl.set_markup(f"<span size='small' weight='700' foreground='#b8b8b8'>{title}</span>")
+        title_lbl.set_markup(f"<span size='small' weight='700' foreground='#b8b8b8'>{GLib.markup_escape_text(str(title))}</span>")
         title_lbl.set_halign(Gtk.Align.START)
         title_lbl.set_hexpand(True)
         top_h.append(title_lbl)

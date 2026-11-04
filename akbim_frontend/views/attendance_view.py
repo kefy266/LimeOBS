@@ -63,7 +63,7 @@ class AttendanceView(Gtk.ScrolledWindow):
 
         # 1. GENEL DURUM ÖZETİ GRUBU
         summary_group = Adw.PreferencesGroup()
-        summary_group.set_title(f"Genel Durum  •  {period_title}")
+        summary_group.set_title(GLib.markup_escape_text(f"Genel Durum  •  {period_title}"))
 
         status_row = Adw.ActionRow()
         if not absence_list:

@@ -264,7 +264,7 @@ def open_compose_message_dialog(parent_window, preselected_receiver=None, reply_
                     alert.present(dialog)
                 else:
                     err_text = res.get("data", {}).get("msg") or res.get("msg") or "Mesaj gönderilemedi."
-                    status_label.set_markup(f"<span color='#e01b24'>{err_text}</span>")
+                    status_label.set_markup(f"<span color='#e01b24'>{GLib.markup_escape_text(str(err_text))}</span>")
 
             GLib.idle_add(finish_ui)
 

@@ -209,7 +209,7 @@ class ScheduleView(Gtk.ScrolledWindow):
                     title_text += " — YARIN"
                 else:
                     title_text += " — SIRADAKİ OKUL GÜNÜ"
-            day_group.set_title(title_text)
+            day_group.set_title(GLib.markup_escape_text(title_text))
 
             day_lessons = sorted(
                 [l for l in self._cached_lessons if l.get("y") == day_index],

@@ -134,6 +134,19 @@ if sys.platform.startswith("win"):
         pass
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
 
+# Adwaita satırları başlık/alt başlığı varsayılan olarak Pango markup diye yorumlar; sunucudan gelen
+# metinde "&" veya "<" olunca satır boş görünür. Tüm satır türlerinde (ActionRow, ExpanderRow,
+# ComboRow, SwitchRow...) markup'ı kapatıp metni olduğu gibi gösteriyoruz.
+_orig_preferences_row_init = Adw.PreferencesRow.__init__
+
+
+def _plain_text_row_init(self, *args, **kwargs):
+    kwargs.setdefault("use_markup", False)
+    _orig_preferences_row_init(self, *args, **kwargs)
+
+
+Adw.PreferencesRow.__init__ = _plain_text_row_init
+
 GLib.set_prgname("com.kagan.limeobs")
 GLib.set_application_name("LimeOBS")
 

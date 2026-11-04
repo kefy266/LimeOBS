@@ -7,7 +7,16 @@ import pickle
 
 BASEURL = "https://tedemkolejiobs.com"
 
-session = requests.Session()
+class _TimeoutSession(requests.Session):
+    """Zaman aşımı verilmeyen isteklerin sunucu yanıt vermediğinde sonsuza kadar beklemesini önler."""
+    DEFAULT_TIMEOUT = 10
+
+    def request(self, *args, **kwargs):
+        kwargs.setdefault("timeout", self.DEFAULT_TIMEOUT)
+        return super().request(*args, **kwargs)
+
+
+session = _TimeoutSession()
 
 COOKIE_FILE = "akbim_session.pkl"
 

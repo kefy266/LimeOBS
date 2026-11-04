@@ -223,7 +223,7 @@ class EtutView(Gtk.ScrolledWindow):
         box.append(num_lbl)
 
         txt_lbl = Gtk.Label()
-        txt_lbl.set_markup(f"<span size='small' foreground='#b8b8b8'>{title}</span>")
+        txt_lbl.set_markup(f"<span size='small' foreground='#b8b8b8'>{GLib.markup_escape_text(str(title))}</span>")
         txt_lbl.set_halign(Gtk.Align.CENTER)
         box.append(txt_lbl)
 

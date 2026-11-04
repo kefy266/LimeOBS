@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import tempfile
 import gi
@@ -29,6 +30,11 @@ class PdfViewerDialog(Adw.Window):
         self.set_default_size(880, 820)
 
         self.temp_file_path = None
+        self._owns_temp_pdf = False      # PDF'i bu pencere mi oluşturdu (silinebilir mi)
+        self._handed_off = False         # PDF harici bir uygulamaya verildiyse kapanışta silinmez
+        # Her görüntüleyici kendi klasörünü kullanır; aksi halde farklı PDF'lerin sayfaları karışır
+        self._render_dir = tempfile.mkdtemp(prefix="limeobs_pdf_")
+        self.connect("close-request", self._cleanup_temp_files)
         self.page_image_paths = []
         self.current_page_idx = 0
         self.total_pages = 0
@@ -43,21 +49,21 @@ class PdfViewerDialog(Adw.Window):
     def prepare_pdf(self, source):
         try:
             if isinstance(source, (bytes, bytearray)):
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-                tmp.write(source)
-                tmp.close()
-                self.temp_file_path = tmp.name
+                self.temp_file_path = os.path.join(self._render_dir, "belge.pdf")
+                with open(self.temp_file_path, "wb") as f:
+                    f.write(source)
+                self._owns_temp_pdf = True
             else:
                 self.temp_file_path = str(source)
 
             # Sayfa resimlerini pdftoppm ile dönüştür (150 DPI yüksek kalite)
             if self.temp_file_path and os.path.exists(self.temp_file_path):
-                out_prefix = os.path.join(tempfile.gettempdir(), f"limeobs_pdf_{os.getpid()}_{self.current_page_idx}")
+                out_prefix = os.path.join(self._render_dir, "sayfa")
                 cmd = ["pdftoppm", "-png", "-r", "150", self.temp_file_path, out_prefix]
                 subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
                 # Üretilen PNG dosyalarını sırayla bul
-                dir_path = tempfile.gettempdir()
+                dir_path = self._render_dir
                 base_name = os.path.basename(out_prefix)
                 found = []
                 for fname in sorted(os.listdir(dir_path)):
@@ -125,7 +131,7 @@ class PdfViewerDialog(Adw.Window):
         if self.temp_file_path:
             open_ext_btn = Gtk.Button(icon_name="document-open-symbolic")
             open_ext_btn.set_tooltip_text("Sistem PDF Uygulamasında Aç")
-            open_ext_btn.connect("clicked", lambda _: open_file_external(self.temp_file_path))
+            open_ext_btn.connect("clicked", lambda _: self._open_external())
             tools_box.append(open_ext_btn)
 
         header.pack_end(tools_box)
@@ -194,7 +200,7 @@ class PdfViewerDialog(Adw.Window):
                     btn = Gtk.Button(label="📄 PDF Belgesini Aç")
                     btn.add_css_class("suggested-action")
                     btn.add_css_class("pill")
-                    btn.connect("clicked", lambda _: open_file_external(self.temp_file_path))
+                    btn.connect("clicked", lambda _: self._open_external())
                     fallback_box.append(btn)
                 
                 self.image_container.append(fallback_box)
@@ -224,6 +230,7 @@ class PdfViewerDialog(Adw.Window):
         import sys
         try:
             if sys.platform.startswith("win"):
+                self._handed_off = True  # yazdırma arka planda dosyayı okumaya devam eder
                 os.startfile(self.temp_file_path, "print")
                 print("Windows yazıcıya gönderildi:", self.temp_file_path)
             elif sys.platform == "darwin":
@@ -233,9 +240,30 @@ class PdfViewerDialog(Adw.Window):
                 print("Yazıcıya gönderildi:", self.temp_file_path)
         except Exception:
             try:
-                open_file_external(self.temp_file_path)
+                self._open_external()
             except Exception as err:
                 print(f"Yazdırma hatası: {err}")
+
+    def _open_external(self):
+        self._handed_off = True
+        open_file_external(self.temp_file_path)
+
+    def _cleanup_temp_files(self, *_):
+        """Pencere kapanırken sayfa resimlerini ve (harici uygulamaya verilmediyse) PDF'i siler."""
+        try:
+            if self._owns_temp_pdf and not self._handed_off:
+                shutil.rmtree(self._render_dir, ignore_errors=True)
+            else:
+                for path in self.page_image_paths:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                if not self._owns_temp_pdf:
+                    shutil.rmtree(self._render_dir, ignore_errors=True)
+        except Exception as e:
+            print(f"Geçici PDF temizleme hatası: {e}")
+        return False
 
 
 def open_pdf_viewer(parent_window, pdf_path_or_bytes, title="PDF Görüntüleyici"):
