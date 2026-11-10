@@ -21,6 +21,7 @@ Yerel önizleme: python scripts/obs_mailer.py digest --dry-run onizleme.html
 import argparse
 import html
 import json
+import re
 import os
 import smtplib
 import sys
@@ -48,6 +49,11 @@ def tr_title(text):
         head = {"i": "İ", "ı": "I"}.get(low[:1], low[:1].upper())
         return head + low[1:]
     return " ".join(word(w) for w in text.split())
+
+
+def tr_lower(text):
+    """Türkçe uyumlu küçük harf: 'İÇLİ PİLAV' -> 'içli pilav' (str.lower() 'i̇çli' yapar)."""
+    return text.replace("I", "ı").replace("İ", "i").lower()
 
 
 def log(msg):
@@ -193,41 +199,83 @@ def empty(text):
     return f'<p class="empty">{html.escape(text)}</p>'
 
 
+SKIP_MEALS = {"bardak su", "su"}
+
+# Gmail mobil uygulaması <style> bloklarını yok sayabildiği için sade, satır içi stil
+P = 'style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#151513"'
+H = 'style="margin:0 0 4px;font-size:13px;font-weight:600;color:#2f8a2b"'
+
+
+def next_school_day(today):
+    d = today + timedelta(days=1)
+    while d.weekday() >= 5:
+        d += timedelta(days=1)
+    return d
+
+
+def join_tr(items):
+    items = [i for i in items if i]
+    if len(items) <= 1:
+        return "".join(items)
+    return ", ".join(items[:-1]) + " ve " + items[-1]
+
+
 def build_digest(today):
     index = (api_bridge.get_adaptive_index_data(force_refresh=True) or {}).get("data") or {}
     lessons = todays_lessons(index, today)
-    menu = todays_menu(today)
+    menu = [m for m in (todays_menu(today) or []) if m.strip().lower() not in SKIP_MEALS]
     exams = upcoming_exams(index, today)
-    hws = due_homeworks(api_bridge.fetch_homeworks_list(force_refresh=True), today)
-    log(f"özet: ders={len(lessons)} yemek={len(menu or [])} sınav={len(exams)} ödev={len(hws)}")
+    due_day = next_school_day(today)
+    hws = [h for h in due_homeworks(api_bridge.fetch_homeworks_list(force_refresh=True), today, days=7)
+           if h["date"] == due_day]
+    log(f"özet: ders={len(lessons)} yemek={len(menu)} sınav={len(exams)} ödev={len(hws)}")
 
-    def rel(d):
-        if d == today:
-            return '<span class="badge">BUGÜN</span>'
-        if d == today + timedelta(days=1):
-            return '<span class="badge">YARIN</span>'
-        return ""
+    # Dersler: sıralı, tekrarsız; aynı ders birden fazla saatse "(2 saat)"
+    counts = {}
+    for l in lessons:
+        name = tr_title(l["lesson"])
+        counts[name] = counts.get(name, 0) + 1
+    lesson_names = [f"{n} ({c} saat)" if c > 1 else n for n, c in counts.items()]
 
-    sections = [
-        ("📅 Günün dersleri", rows([
-            (l["time"].replace(" ", ""), f'{html.escape(tr_title(l["lesson"]))}<br><span class="m">{html.escape(tr_title(l["teacher"]))}</span>')
-            for l in lessons
-        ]) or empty("Bugün ders görünmüyor.")),
-        ("🍲 Yemek listesi", ("<table>" + "".join(
-            f"<tr><td>{html.escape(tr_title(m) if m.isupper() else m)}</td></tr>" for m in menu
-        ) + "</table>") if menu else empty("Bugünün menüsü listede bulunamadı.")),
-        ("📝 Yaklaşan sınavlar (7 gün)", rows([
-            (f'{e["date"].day} {MONTHS[e["date"].month - 1]}', f'{html.escape(e["name"])}{rel(e["date"])}')
-            for e in exams
-        ]) or empty("Önümüzdeki 7 günde sınav yok.")),
-        ("📚 Teslimi yaklaşan ödevler (3 gün)", rows([
-            (f'{h["date"].day} {MONTHS[h["date"].month - 1]}',
-             f'{html.escape(h["title"])}{rel(h["date"])}<br><span class="m">{html.escape(tr_title(h["lesson"]))}</span>')
+    due_label = "Yarın" if due_day == today + timedelta(days=1) else DAY_NAMES[due_day.weekday()]
+    blocks = []
+    if lesson_names:
+        blocks.append(("📅 Dersler", f"Bugün şu derslerin var: {join_tr(lesson_names)}."))
+    else:
+        blocks.append(("📅 Dersler", "Bugün ders görünmüyor."))
+    if menu:
+        blocks.append(("🍲 Yemek", f"Öğle yemeğinde {join_tr([tr_lower(m) for m in menu])} var."))
+    if hws:
+        items = "".join(
+            f'<li style="margin:0 0 4px">{html.escape(h["title"])} '
+            f'<span style="color:#8a8a84">({html.escape(tr_title(h["lesson"]))})</span></li>'
             for h in hws
-        ]) or empty("Teslimi yaklaşan ödev yok.")),
-    ]
-    subject = f"🍋 LimeOBS — {fmt_date(today)}"
-    return subject, page("Günaydın 👋", fmt_date(today), sections)
+        )
+        blocks.append((f"📚 {due_label} teslim edilecek ödevler", f'<ul style="margin:0;padding-left:20px">{items}</ul>'))
+    else:
+        blocks.append(("📚 Ödevler", f"{due_label} teslim edilecek ödevin yok."))
+    if exams:
+        ex = join_tr([f'{e["name"]} ({e["date"].day} {MONTHS[e["date"].month - 1]})' for e in exams])
+        blocks.append(("📝 Yaklaşan sınav", f"{ex}."))
+
+    body = "".join(
+        f'<p {H}>{html.escape(title)}</p>'
+        f'<div {P}>{text if text.startswith("<ul") else html.escape(text)}</div>'
+        for title, text in blocks
+    )
+    html_body = (
+        '<!doctype html><html lang="tr"><head><meta charset="utf-8"></head>'
+        '<body style="margin:0;padding:0;background:#ffffff">'
+        '<div style="max-width:520px;margin:0 auto;padding:24px 18px;'
+        'font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">'
+        f'<p style="margin:0 0 2px;font-size:20px;font-weight:600;color:#151513">Günaydın 👋</p>'
+        f'<p style="margin:0 0 22px;font-size:14px;color:#6b6b66">{fmt_date(today)}</p>'
+        f'{body}'
+        '<p style="margin:24px 0 0;font-size:12px;color:#a3a39e">LimeOBS</p>'
+        '</div></body></html>'
+    )
+    plain = "\n\n".join(f"{t}\n{re.sub(r'<[^>]+>', ' ', x).strip()}" for t, x in blocks)
+    return f"🍋 Günaydın — {fmt_date(today)}", html_body, plain
 
 
 def build_new_items_mail(new):
@@ -246,7 +294,7 @@ def build_new_items_mail(new):
 
 # --------------------------------------------------------------------------- Gönderim
 
-def send(subject, html_body, dry_run=None):
+def send(subject, html_body, dry_run=None, plain=None):
     if dry_run:
         Path(dry_run).write_text(html_body, encoding="utf-8")
         log(f"önizleme yazıldı (gönderilmedi): {subject}")
@@ -258,7 +306,7 @@ def send(subject, html_body, dry_run=None):
     msg["Subject"] = subject
     msg["From"] = f"LimeOBS <{user}>"
     msg["To"] = os.environ.get("MAIL_TO") or user
-    msg.set_content("Bu e-posta HTML içerir; HTML destekleyen bir istemciyle açın.")
+    msg.set_content(plain or "Bu e-posta HTML içerir; HTML destekleyen bir istemciyle açın.")
     msg.add_alternative(html_body, subtype="html")
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
         smtp.login(user, app_pw.replace(" ", ""))
@@ -283,10 +331,10 @@ def main():
     today = now_tr().date()
 
     if args.mode in ("digest", "test"):
-        subject, body = build_digest(today)
+        subject, body, plain = build_digest(today)
         if args.mode == "test":
             subject = "[TEST] " + subject
-        send(subject, body, args.dry_run)
+        send(subject, body, args.dry_run, plain)
         return
 
     # check: önceki çalıştırmada görülmeyen kayıtları bildir
