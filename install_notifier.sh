@@ -2,6 +2,7 @@
 # LimeOBS bildirim zamanlayıcılarını (systemd kullanıcı servisi) kurar. Root gerektirmez.
 #   - Hafta içi 08:50: sabah özeti
 #   - Hafta içi 08:00-20:30 her 30 dk, hafta sonu 12:00 ve 18:00: yeni ödev/mesaj/duyuru kontrolü
+#   - Telegram botu (/bugun, /yarin, /odev, /yemek, /sinav) sürekli çalışan servis olarak
 # Kanallar: Telegram (anında) + giden kutusu (Claude zamanlanmış görevi Gmail'den gönderir).
 # OBS girişi ve Telegram anahtarı sistem anahtarlığından okunur (telegram_setup.py ile kaydedilir).
 # Kaldırmak için: ./install_notifier.sh --uninstall
@@ -12,8 +13,8 @@ UNIT_DIR="$HOME/.config/systemd/user"
 CHANNELS="${LIMEOBS_CHANNELS:-telegram,outbox}"
 
 if [ "$1" = "--uninstall" ]; then
-    systemctl --user disable --now limeobs-digest.timer limeobs-check.timer 2>/dev/null || true
-    rm -f "$UNIT_DIR"/limeobs-digest.{service,timer} "$UNIT_DIR"/limeobs-check.{service,timer}
+    systemctl --user disable --now limeobs-digest.timer limeobs-check.timer limeobs-bot.service 2>/dev/null || true
+    rm -f "$UNIT_DIR"/limeobs-digest.{service,timer} "$UNIT_DIR"/limeobs-check.{service,timer} "$UNIT_DIR"/limeobs-bot.service
     systemctl --user daemon-reload
     echo "LimeOBS bildirim zamanlayıcıları kaldırıldı."
     exit 0
@@ -62,7 +63,25 @@ AccuracySec=1min
 WantedBy=timers.target
 EOF
 
+cat > "$UNIT_DIR/limeobs-bot.service" << EOF
+[Unit]
+Description=LimeOBS Telegram botu
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=$PROJECT_DIR
+ExecStart="$PROJECT_DIR/venv/bin/python" "$PROJECT_DIR/scripts/telegram_bot.py"
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target
+EOF
+
 systemctl --user daemon-reload
 systemctl --user enable --now limeobs-digest.timer limeobs-check.timer
+systemctl --user enable limeobs-bot.service
+systemctl --user restart limeobs-bot.service
 echo "=== Kuruldu. Sonraki çalışmalar: ==="
 systemctl --user list-timers 'limeobs-*' --no-pager

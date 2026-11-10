@@ -48,6 +48,8 @@ def tr_title(text):
     """Türkçe uyumlu baş harf büyütme: 'PİRİNÇ PİLAVI' -> 'Pirinç Pilavı' (str.title() 'Pi̇ri̇nç Pilavi' yapar)."""
     def word(w):
         low = w.replace("I", "ı").replace("İ", "i").lower()
+        if low in ("ve", "ile", "veya"):
+            return low
         head = {"i": "İ", "ı": "I"}.get(low[:1], low[:1].upper())
         return head + low[1:]
     return " ".join(word(w) for w in text.split())
