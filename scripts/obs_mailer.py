@@ -29,6 +29,8 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
 
+import requests
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "akbim_frontend")]
 
@@ -280,7 +282,11 @@ def build_digest(today):
         return re.sub(r"[ \t]+", " ", x).strip()
 
     plain = "\n\n".join(f"{t}\n{to_plain(x)}" for t, x in blocks)
-    return f"🍋 Günaydın — {fmt_date(today)}", html_body, plain
+    subject = f"🍋 Günaydın — {fmt_date(today)}"
+    telegram = f"<b>{html.escape(subject)}</b>\n\n" + "\n\n".join(
+        f"<b>{html.escape(t)}</b>\n{html.escape(to_plain(x))}" for t, x in blocks
+    )
+    return subject, html_body, plain, telegram
 
 
 def build_new_items_mail(new):
@@ -294,10 +300,46 @@ def build_new_items_mail(new):
     short = {"homework": "yeni ödev", "mail": "yeni mesaj", "announcement": "yeni duyuru", "notification": "OBS bildirimi"}
     parts = [f"{len(v)} {short[k]}" for k, v in new.items() if v]
     subject = f"🔔 LimeOBS — {', '.join(parts)}"
-    return subject, page(f"{total} yeni bildirim", fmt_date(now_tr().date()), sections)
+    telegram = f"<b>🔔 {total} yeni bildirim</b>\n\n" + "\n\n".join(
+        f"<b>{html.escape(labels[k])}</b>\n" + "\n".join(f"• {html.escape(t)}" for t in v.values())
+        for k, v in new.items() if v
+    )
+    return subject, page(f"{total} yeni bildirim", fmt_date(now_tr().date()), sections), telegram
 
 
 # --------------------------------------------------------------------------- Gönderim
+
+def get_secret(name):
+    """Önce ortam değişkeni (GitHub Actions), yoksa yerel sistem anahtarlığı ('LimeOBS' servisi)."""
+    value = os.environ.get(name.upper())
+    if value:
+        return value
+    try:
+        import keyring
+        return keyring.get_password("LimeOBS", name)
+    except Exception:
+        return None
+
+
+def send_telegram(text, dry_run=None):
+    if dry_run:
+        Path(dry_run + ".telegram.txt").write_text(text, encoding="utf-8")
+        log("telegram önizlemesi yazıldı (gönderilmedi).")
+        return
+    token, chat_id = get_secret("telegram_bot_token"), get_secret("telegram_chat_id")
+    if not token or not chat_id:
+        raise SystemExit("Telegram anahtarı/sohbet kimliği yok: önce scripts/telegram_setup.py çalıştırın.")
+    if len(text) > 4000:  # Telegram mesaj sınırı 4096 karakter
+        text = text[:3990] + "\n…"
+    res = requests.post(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        json={"chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True},
+        timeout=20,
+    )
+    if not res.ok or not res.json().get("ok"):
+        raise SystemExit(f"Telegram gönderimi başarısız (HTTP {res.status_code}).")
+    log("telegram mesajı gönderildi.")
+
 
 def send(subject, html_body, dry_run=None, plain=None):
     if dry_run:
@@ -330,16 +372,23 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", choices=["digest", "check", "test"])
     ap.add_argument("--dry-run", metavar="HTML_DOSYASI", help="göndermek yerine HTML'i dosyaya yaz")
+    ap.add_argument("--via", default=os.environ.get("LIMEOBS_CHANNELS", "mail"),
+                    help="virgülle ayrılmış kanallar: mail, telegram (varsayılan: mail)")
     args = ap.parse_args()
+    channels = {c.strip() for c in args.via.split(",") if c.strip()}
 
     login()
     today = now_tr().date()
 
     if args.mode in ("digest", "test"):
-        subject, body, plain = build_digest(today)
+        subject, body, plain, telegram = build_digest(today)
         if args.mode == "test":
             subject = "[TEST] " + subject
-        send(subject, body, args.dry_run, plain)
+            telegram = "[TEST] " + telegram
+        if "mail" in channels:
+            send(subject, body, args.dry_run, plain)
+        if "telegram" in channels:
+            send_telegram(telegram, args.dry_run)
         return
 
     # check: önceki çalıştırmada görülmeyen kayıtları bildir
@@ -353,7 +402,11 @@ def main():
         new = {k: {i: t for i, t in v.items() if i not in set(seen.get(k, []))} for k, v in current.items()}
         if any(new.values()):
             log("yeni kayıt: " + ", ".join(f"{k}={len(v)}" for k, v in new.items()))
-            send(*build_new_items_mail(new), args.dry_run)
+            subject, body, telegram = build_new_items_mail(new)
+            if "mail" in channels:
+                send(subject, body, args.dry_run)
+            if "telegram" in channels:
+                send_telegram(telegram, args.dry_run)
         else:
             log("yeni kayıt yok.")
     merged = {k: sorted(set((seen or {}).get(k, [])) | set(v)) for k, v in current.items()}
