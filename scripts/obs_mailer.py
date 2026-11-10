@@ -274,7 +274,12 @@ def build_digest(today):
         '<p style="margin:24px 0 0;font-size:12px;color:#a3a39e">LimeOBS</p>'
         '</div></body></html>'
     )
-    plain = "\n\n".join(f"{t}\n{re.sub(r'<[^>]+>', ' ', x).strip()}" for t, x in blocks)
+    def to_plain(x):
+        x = re.sub(r"<li[^>]*>", "\n• ", x)
+        x = html.unescape(re.sub(r"<[^>]+>", "", x))
+        return re.sub(r"[ \t]+", " ", x).strip()
+
+    plain = "\n\n".join(f"{t}\n{to_plain(x)}" for t, x in blocks)
     return f"🍋 Günaydın — {fmt_date(today)}", html_body, plain
 
 
