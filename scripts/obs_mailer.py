@@ -1,12 +1,13 @@
 """
-LimeOBS e-posta bildirimleri (GitHub Actions'ta zamanlanmış olarak çalışır).
+LimeOBS e-posta bildirimleri. Gizli kefy266/LimeOBS-mailer deposundaki zamanlanmış GitHub Actions
+işi bu betiği çalıştırır; şifreler ve iş kayıtları o gizli depoda durur.
 
 Modlar:
   digest  Sabah özeti: günün ders programı, yemek listesi, yaklaşan sınavlar, teslimi yaklaşan ödevler
   check   Yeni ödev / gelen mesaj / duyuru / OBS bildirimi varsa e-posta gönderir
   test    Sabah özetini hemen gönderir (konu satırında [TEST])
 
-Ortam değişkenleri (GitHub > Settings > Secrets and variables > Actions):
+Ortam değişkenleri (LimeOBS-mailer > Settings > Secrets and variables > Actions):
   OBS_TC, OBS_PASSWORD         OBS giriş bilgileri
   GMAIL_USER                   Gönderen Gmail adresi
   GMAIL_APP_PASSWORD           Gmail uygulama şifresi (gerçek Gmail şifresi DEĞİL)
