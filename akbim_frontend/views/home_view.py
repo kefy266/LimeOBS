@@ -14,7 +14,7 @@ from api_bridge import (
     get_effective_school_date,
     get_effective_school_day_idx,
 )
-from views.food_list_view import parse_food_menu, parse_day_date_obj
+from food_menu import parse_food_menu, parse_day_date_obj
 
 
 class HomeView(Gtk.ScrolledWindow):
