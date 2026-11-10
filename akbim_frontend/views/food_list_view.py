@@ -62,6 +62,9 @@ def clean_meal_text(txt):
     if not txt:
         return ""
     t = re.sub(r'\s+', ' ', txt).strip()
+    # "Z.YAĞLI", "Z . Y", "T.YAĞLI" gibi kısaltmalar (sonda AĞLI varsa tekrar eklenmesin)
+    t = re.sub(r'(?<![^\s])Z\s*\.\s*Y(?:AĞLI)?(?![^\s])', 'ZEYTİNYAĞLI', t)
+    t = re.sub(r'(?<![^\s])T\s*\.\s*Y(?:AĞLI)?(?![^\s])', 'TEREYAĞLI', t)
     replacements = {
         "TA V A": "TAVA",
         "TA VA": "TAVA",
@@ -154,6 +157,42 @@ def classify_meal(meal_name, index_in_day=0):
 _PARSED_FOOD_CACHE = {}
 
 
+def rejoin_split_words(text, known_words):
+    """
+    PDF bazı kelimeleri harf harf ayrı parçalar olarak saklar ('T AVUK', 'ETLİ KURU F ASULYE').
+    pypdf'in düz metni yazı tipi ölçüleriyle doğru birleştirir; komşu parçaların birleşimi o metinde
+    tek kelime olarak geçiyorsa boşluksuz birleştir.
+    """
+    tokens = text.split()
+    out = []
+    i = 0
+    while i < len(tokens):
+        merged = False
+        for n in (3, 2):  # önce en uzun birleşimi dene
+            if i + n <= len(tokens):
+                cand = "".join(tokens[i:i + n])
+                if cand in known_words and not all(t in known_words for t in tokens[i:i + n]):
+                    out.append(cand)
+                    i += n
+                    merged = True
+                    break
+        if not merged:
+            out.append(tokens[i])
+            i += 1
+    return " ".join(out)
+
+
+DAY_NAMES_TR = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+
+
+def _is_date_text(txt):
+    """Başlık parçası bir gün adı ya da ay adı içeriyor mu? (Ekim PDF'i gün adlı, Kasım PDF'i yalnızca tarihli)"""
+    if any(d in txt for d in DAY_NAMES_TR[:5]):
+        return True
+    low = txt.replace('İ', 'i').replace('I', 'ı').lower()
+    return any(m in low.split() for m in MONTH_NAMES_TR)
+
+
 def parse_food_menu(pdf_bytes):
     """
     Okulun yemek listesi PDF dosyasını dinamik olarak gün gün ve yemek yemek ayrıştırır.
@@ -170,8 +209,6 @@ def parse_food_menu(pdf_bytes):
         reader = PdfReader(io.BytesIO(pdf_bytes))
         all_weeks = []
 
-        day_names_keywords = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma"]
-
         for p_idx, page in enumerate(reader.pages):
             items = []
             def visitor(text, cm, tm, font_dict, font_size):
@@ -181,16 +218,23 @@ def parse_food_menu(pdf_bytes):
 
             if not items:
                 continue
+            page_words = set(page.extract_text().split())
 
-            # 1. Gün başlıklarını dinamik tespit et ve yatay bölünmüş metinleri (ör. '26 Ekim' ve '2026 Pazartesi') birleştir
-            day_keyword_items = [it for it in items if any(d in it[2] for d in day_names_keywords) and it[1] >= 300]
-            if not day_keyword_items:
+            # 1. Gün başlık satırını bul: gün ya da ay adı içeren parçaların en kalabalık olduğu satır.
+            #    ("KASIM AYI YEMEK LİSTESİ" gibi tek parçalı başlık satırı böylece elenir.)
+            date_like = [it for it in items if _is_date_text(it[2]) and it[1] >= 300]
+            if not date_like:
                 continue
-
-            ref_y = day_keyword_items[0][1]
+            ref_y = max(
+                {round(it[1]) for it in date_like},
+                key=lambda y: sum(1 for it in date_like if abs(it[1] - y) < 8),
+            )
+            if sum(1 for it in date_like if abs(it[1] - ref_y) < 8) < 2:
+                continue
             header_row = [it for it in items if abs(it[1] - ref_y) < 8]
             header_row.sort(key=lambda it: it[0])
 
+            # Yatay bölünmüş metinleri birleştir (ör. '26 Ekim' + '2026 Pazartesi', '1' + '0' + 'Kasım 2026')
             merged_headers = []
             for it in header_row:
                 if not merged_headers:
@@ -198,14 +242,17 @@ def parse_food_menu(pdf_bytes):
                 else:
                     last = merged_headers[-1]
                     if 0 <= (it[0] - last[0]) < 85:
-                        last[2] = f"{last[2]} {it[2]}"
+                        # Yan yana rakamlar ('1','0') tek sayıdır: boşluksuz birleştir
+                        sep = "" if last[2][-1:].isdigit() and it[2][:1].isdigit() and len(last[2].split()[-1]) < 3 and it[0] - last[3] < 12 else " "
+                        last[2] = f"{last[2]}{sep}{it[2]}"
                     else:
                         merged_headers.append([it[0], it[1], it[2]])
+                merged_headers[-1][3:] = [it[0]]
 
-            date_items = [m for m in merged_headers if any(d in m[2] for d in day_names_keywords)]
+            date_items = [m[:3] for m in merged_headers if _is_date_text(m[2])]
             date_items.sort(key=lambda it: it[0])
 
-            if not date_items:
+            if len(date_items) < 2:
                 continue
 
             # 2. Sütun sınırlarını dinamik oluştur
@@ -251,7 +298,7 @@ def parse_food_menu(pdf_bytes):
                     # Yüksek satır farkı yeni bir yemeğe geçildiğini gösterir
                     if last_y is not None and abs(last_y - y) > 20:
                         if cur_meal:
-                            m_str = clean_meal_text(" ".join(cur_meal))
+                            m_str = clean_meal_text(rejoin_split_words(" ".join(cur_meal), page_words))
                             if m_str and len(m_str) > 1:
                                 meals.append(m_str)
                             cur_meal = []
@@ -259,12 +306,16 @@ def parse_food_menu(pdf_bytes):
                     last_y = y
 
                 if cur_meal:
-                    m_str = clean_meal_text(" ".join(cur_meal))
+                    m_str = clean_meal_text(rejoin_split_words(" ".join(cur_meal), page_words))
                     if m_str and len(m_str) > 1:
                         meals.append(m_str)
 
-                # Tarih metnini güzelleştir
+                # Tarih metnini güzelleştir; gün adı yoksa tarihten hesaplayıp ekle
                 date_clean = re.sub(r'\s+', ' ', col["date"]).strip()
+                if not any(d in date_clean for d in DAY_NAMES_TR):
+                    d_obj = parse_day_date_obj(date_clean)
+                    if d_obj:
+                        date_clean = f"{date_clean} {DAY_NAMES_TR[d_obj.weekday()]}"
 
                 days.append({
                     "date": date_clean,
