@@ -73,7 +73,8 @@ def fmt_date(d):
 # --------------------------------------------------------------------------- OBS
 
 def login():
-    akbim_api.BASEURL = os.environ.get("OBS_BASE_URL", "https://tedemkolejiobs.com").rstrip("/")
+    akbim_api.BASEURL = (os.environ.get("OBS_BASE_URL") or api_bridge.get_saved_base_url()).rstrip("/")
+    akbim_api.COOKIE_FILE = str(ROOT / "akbim_session.pkl")
     tc, password = os.environ.get("OBS_TC"), os.environ.get("OBS_PASSWORD")
     if not tc or not password:
         if api_bridge.ensure_valid_session():  # yerelde kayıtlı oturum/anahtarlık
@@ -346,19 +347,52 @@ def send(subject, html_body, dry_run=None, plain=None):
         Path(dry_run).write_text(html_body, encoding="utf-8")
         log(f"önizleme yazıldı (gönderilmedi): {subject}")
         return
-    user, app_pw = os.environ.get("GMAIL_USER"), os.environ.get("GMAIL_APP_PASSWORD")
+    user, app_pw = get_secret("gmail_user"), get_secret("gmail_app_password")
     if not user or not app_pw:
         raise SystemExit("GMAIL_USER / GMAIL_APP_PASSWORD tanımlı değil.")
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = f"LimeOBS <{user}>"
-    msg["To"] = os.environ.get("MAIL_TO") or user
+    msg["To"] = get_secret("mail_to") or user
     msg.set_content(plain or "Bu e-posta HTML içerir; HTML destekleyen bir istemciyle açın.")
     msg.add_alternative(html_body, subtype="html")
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
         smtp.login(user, app_pw.replace(" ", ""))
         smtp.send_message(msg)
     log("e-posta gönderildi.")
+
+
+OUTBOX_DIR = Path(os.environ.get("LIMEOBS_OUTBOX", Path.home() / ".local/share/limeobs/outbox"))
+
+
+def send_outbox(subject, html_body, plain=None, dry_run=None):
+    """E-postayı göndermek yerine giden kutusuna bırakır; Claude zamanlanmış görevi Gmail'den yollar."""
+    if dry_run:
+        log("giden kutusu (dry-run): yazılmadı.")
+        return
+    OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
+    name = now_tr().strftime("%Y%m%d-%H%M%S") + ".json"
+    payload = {"to": get_secret("gmail_user") or "", "subject": subject, "html": html_body, "plain": plain or ""}
+    (OUTBOX_DIR / name).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    log("e-posta giden kutusuna bırakıldı.")
+
+
+def deliver(channels, subject, html_body, plain, telegram, dry_run):
+    """Her kanalı ayrı dener; biri başarısız olsa da diğerleri gönderilir."""
+    failed = []
+    senders = {
+        "mail": lambda: send(subject, html_body, dry_run, plain),
+        "outbox": lambda: send_outbox(subject, html_body, plain, dry_run),
+        "telegram": lambda: send_telegram(telegram, dry_run),
+    }
+    for ch in sorted(channels):
+        try:
+            senders[ch]()
+        except (Exception, SystemExit) as e:
+            failed.append(ch)
+            log(f"{ch} kanalı başarısız: {e}")
+    if failed:
+        raise SystemExit(1)
 
 
 def load_state(path):
@@ -373,7 +407,7 @@ def main():
     ap.add_argument("mode", choices=["digest", "check", "test"])
     ap.add_argument("--dry-run", metavar="HTML_DOSYASI", help="göndermek yerine HTML'i dosyaya yaz")
     ap.add_argument("--via", default=os.environ.get("LIMEOBS_CHANNELS", "mail"),
-                    help="virgülle ayrılmış kanallar: mail, telegram (varsayılan: mail)")
+                    help="virgülle ayrılmış kanallar: mail, telegram, outbox (varsayılan: mail)")
     args = ap.parse_args()
     channels = {c.strip() for c in args.via.split(",") if c.strip()}
 
@@ -385,10 +419,7 @@ def main():
         if args.mode == "test":
             subject = "[TEST] " + subject
             telegram = "[TEST] " + telegram
-        if "mail" in channels:
-            send(subject, body, args.dry_run, plain)
-        if "telegram" in channels:
-            send_telegram(telegram, args.dry_run)
+        deliver(channels, subject, body, plain, telegram, args.dry_run)
         return
 
     # check: önceki çalıştırmada görülmeyen kayıtları bildir
@@ -403,10 +434,12 @@ def main():
         if any(new.values()):
             log("yeni kayıt: " + ", ".join(f"{k}={len(v)}" for k, v in new.items()))
             subject, body, telegram = build_new_items_mail(new)
-            if "mail" in channels:
-                send(subject, body, args.dry_run)
-            if "telegram" in channels:
-                send_telegram(telegram, args.dry_run)
+            # Durum, gönderim başarısız olsa da kaydedilir; aynı kayıt tekrar tekrar bildirilmesin
+            try:
+                deliver(channels, subject, body, None, telegram, args.dry_run)
+            finally:
+                merged = {k: sorted(set((seen or {}).get(k, [])) | set(v)) for k, v in current.items()}
+                Path(state_path).write_text(json.dumps(merged), encoding="utf-8")
         else:
             log("yeni kayıt yok.")
     merged = {k: sorted(set((seen or {}).get(k, [])) | set(v)) for k, v in current.items()}
