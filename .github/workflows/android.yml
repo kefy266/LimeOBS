@@ -1,0 +1,66 @@
+name: Android APK
+
+on:
+  push:
+    branches: ["main", "android"]
+    tags: ["v*"]
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: APK derle
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: İmza anahtarı
+        env:
+          ANAHTAR_B64: ${{ secrets.LIMEOBS_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$ANAHTAR_B64" ]; then
+            echo "$ANAHTAR_B64" | base64 -d > "$RUNNER_TEMP/limeobs.jks"
+            echo "LIMEOBS_KEYSTORE=$RUNNER_TEMP/limeobs.jks" >> "$GITHUB_ENV"
+            echo "Sürüm anahtarıyla imzalanacak."
+          else
+            echo "::warning::LIMEOBS_KEYSTORE_B64 tanımlı değil; APK geçici hata ayıklama anahtarıyla imzalanacak."
+          fi
+
+      - name: Sürüm bilgisi
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then AD="${GITHUB_REF_NAME#v}"; else AD="1.0.0-dev.${GITHUB_RUN_NUMBER}"; fi
+          echo "LIMEOBS_VERSION_NAME=$AD" >> "$GITHUB_ENV"
+          echo "LIMEOBS_VERSION_CODE=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+
+      - name: Derle
+        env:
+          LIMEOBS_KEYSTORE_PASS: ${{ secrets.LIMEOBS_KEYSTORE_PASS }}
+        run: gradle -p android assembleRelease --stacktrace
+
+      - name: APK'yı adlandır
+        run: cp android/app/build/outputs/apk/release/app-release.apk LimeOBS-Android.apk
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: LimeOBS-Android
+          path: LimeOBS-Android.apk
+
+      - name: Sürüme ekle
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: LimeOBS-Android.apk
