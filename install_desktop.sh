@@ -7,6 +7,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APPIMAGE="$PROJECT_DIR/dist_appimage/LimeOBS-x86_64.AppImage"
 ICON_SRC="$PROJECT_DIR/akbim_frontend/app_icon.png"
 APP_ID="com.kagan.limeobs"
+QT_APP_ID="com.kagan.limeobs.qt"
 
 BIN_DIR="$HOME/.local/bin"
 APPS_DIR="$HOME/.local/share/applications"
@@ -20,7 +21,7 @@ refresh_caches() {
 }
 
 if [ "$1" = "--uninstall" ]; then
-    rm -f "$BIN_DIR/limeobs" "$APPS_DIR/$APP_ID.desktop"
+    rm -f "$BIN_DIR/limeobs" "$APPS_DIR/$APP_ID.desktop" "$BIN_DIR/limeobs-qt" "$APPS_DIR/$QT_APP_ID.desktop"
     for size in $SIZES; do
         rm -f "$ICON_ROOT/${size}x${size}/apps/$APP_ID.png"
     done
@@ -52,6 +53,12 @@ exit 1
 EOF
 chmod +x "$BIN_DIR/limeobs"
 
+cat << EOF > "$BIN_DIR/limeobs-qt"
+#!/usr/bin/env bash
+exec "$PROJECT_DIR/venv/bin/python" "$PROJECT_DIR/limeobs_qt/main.py" "\$@"
+EOF
+chmod +x "$BIN_DIR/limeobs-qt"
+
 echo "=== İkonlar (hicolor) ==="
 for size in $SIZES; do
     dir="$ICON_ROOT/${size}x${size}/apps"
@@ -74,6 +81,23 @@ Terminal=false
 Categories=Education;
 Keywords=limeobs;obs;akbim;tedem;okul;öğrenci;ders;sınav;
 StartupWMClass=$APP_ID
+StartupNotify=true
+EOF
+
+cat << EOF > "$APPS_DIR/$QT_APP_ID.desktop"
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=LimeOBS (Qt)
+GenericName=Öğrenci Bilgi Sistemi
+Comment=LimeOBS'un yeni Qt Quick arayüzü
+Exec=$BIN_DIR/limeobs-qt
+TryExec=$BIN_DIR/limeobs-qt
+Icon=$APP_ID
+Terminal=false
+Categories=Education;
+Keywords=limeobs;obs;akbim;tedem;okul;öğrenci;ders;sınav;qt;
+StartupWMClass=$QT_APP_ID
 StartupNotify=true
 EOF
 
