@@ -167,6 +167,7 @@ from views.attendance_view import AttendanceView
 from views.library_view import LibraryView
 from views.etut_view import EtutView
 from views.classical_exams_view import ClassicalExamsView
+from views.ai_view import AIAssistantView
 from views.notifications_dialog import show_notifications_popover
 from views.command_palette_dialog import CommandPaletteDialog
 from api_bridge import (
@@ -462,8 +463,10 @@ class AkbimMainWindow(Adw.ApplicationWindow):
         self.library_view = LibraryView()
         self.etut_view = EtutView()
         self.profile_view = ProfileView(on_logout=self.on_logout_clicked)
+        self.ai_view = AIAssistantView()
 
         self.stack.add_titled_with_icon(self.home_view, "home", "Anasayfa", "user-home-symbolic")
+        self.stack.add_titled_with_icon(self.ai_view, "ai", "Asistan", "chat-symbolic")
         self.stack.add_titled_with_icon(self.schedule_view, "schedule", "Dersler", "appointment-soon-symbolic")
         self.stack.add_titled_with_icon(self.etut_view, "etut", "Etüt ve Birebir", "accessories-calculator-symbolic")
         self.stack.add_titled_with_icon(self.attendance_view, "attendance", "Devamsızlık", "user-available-symbolic")
@@ -637,6 +640,7 @@ class AkbimMainWindow(Adw.ApplicationWindow):
 
         menu_items = [
             ("Anasayfa", "user-home-symbolic", "home"),
+            ("Asistan", "chat-symbolic", "ai"),
             ("Ders Programı", "appointment-soon-symbolic", "schedule"),
             ("Etüt ve Birebir", "accessories-calculator-symbolic", "etut"),
             ("Devamsızlık Takip", "user-available-symbolic", "attendance"),
@@ -721,6 +725,7 @@ class AkbimMainWindow(Adw.ApplicationWindow):
                 "teachers": self.teachers_view,
                 "messages": self.messages_view,
                 "profile": self.profile_view,
+                "ai": self.ai_view,
             }
             target_view = view_map.get(tag)
             if target_view and hasattr(target_view, "load_data"):
@@ -746,6 +751,7 @@ class AkbimMainWindow(Adw.ApplicationWindow):
             getattr(self, "library_view", None),
             getattr(self, "etut_view", None),
             getattr(self, "profile_view", None),
+            getattr(self, "ai_view", None),
         ]
         for v in all_views:
             if v and hasattr(v, "reset_state"):
