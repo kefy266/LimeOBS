@@ -1,6 +1,6 @@
 name = "limeobs-ai"
 main = "worker.js"
-compatibility_date = "2026-11-01"
+compatibility_date = "2026-05-01"
 
 # Groq anahtarı burada DEĞİL, gizli değişken olarak tutulur:
 #   npx wrangler secret put GROQ_API_KEY

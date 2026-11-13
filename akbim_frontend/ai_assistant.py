@@ -20,7 +20,7 @@ from food_menu import parse_day_date_obj, parse_food_menu
 
 # Cloudflare Worker yayınlandıktan sonra adresi buraya yazılır (ör. https://limeobs-ai.<hesap>.workers.dev).
 # Geliştirme için LIMEOBS_AI_PROXY ortam değişkeni ya da config'teki ai_assistant.proxy_url da kullanılabilir.
-AI_PROXY_URL = ""
+AI_PROXY_URL = "https://limeobs-ai.limeobs.workers.dev"
 
 DEFAULTS = {
     "proxy_url": "",
