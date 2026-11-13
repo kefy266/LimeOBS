@@ -53,18 +53,11 @@ class AIAssistantView(Gtk.Box):
         clear_btn.connect("clicked", lambda _: self.reset_state())
         header.append(clear_btn)
 
-        settings_btn = Gtk.Button(icon_name="emblem-system-symbolic")
-        settings_btn.set_tooltip_text("Asistan Ayarları")
-        settings_btn.add_css_class("flat")
-        settings_btn.connect("clicked", lambda _: self.open_settings())
-        header.append(settings_btn)
         self.append(header)
 
         # --- Anahtar yoksa kurulum kartı
         self.setup_banner = Adw.Banner()
-        self.setup_banner.set_title("Asistanı kullanmak için ücretsiz bir Groq API anahtarı ekleyin")
-        self.setup_banner.set_button_label("Anahtar Ekle")
-        self.setup_banner.connect("button-clicked", lambda _: self.open_settings())
+        self.setup_banner.set_title("Asistan servisi henüz kurulmadı")
         self.setup_banner.set_margin_top(12)
         self.append(self.setup_banner)
 
@@ -124,7 +117,7 @@ class AIAssistantView(Gtk.Box):
     # ------------------------------------------------------------------ durum
 
     def refresh_setup_state(self):
-        self.setup_banner.set_revealed(not ai.get_groq_api_key())
+        self.setup_banner.set_revealed(not ai.service_configured())
 
     def load_data(self):
         """Sekmeye geçildiğinde çağrılır; ağ isteği yapmaz."""
@@ -189,8 +182,7 @@ class AIAssistantView(Gtk.Box):
     def ask(self, question):
         if self.busy:
             return
-        if not ai.get_groq_api_key():
-            self.open_settings()
+        if not ai.service_configured():
             return
         first = self.chat_box.get_first_child()
         if first and isinstance(first, Gtk.Label):  # karşılama metnini kaldır
@@ -232,60 +224,3 @@ class AIAssistantView(Gtk.Box):
                 GLib.idle_add(lambda: self.set_busy(False) or False)
 
         threading.Thread(target=worker, daemon=True).start()
-
-    # ------------------------------------------------------------------ ayarlar
-
-    def open_settings(self):
-        settings = ai.load_settings()
-        dialog = Adw.PreferencesDialog()
-        dialog.set_title("Asistan Ayarları")
-        page = Adw.PreferencesPage()
-
-        key_group = Adw.PreferencesGroup()
-        key_group.set_title("Groq API Anahtarı")
-        has_key = bool(ai.get_groq_api_key())
-        key_group.set_description(
-            ("✅ Kayıtlı bir anahtar var. Değiştirmek için yenisini yapıştırın.\n" if has_key else "")
-            + "console.groq.com/keys adresinden ücretsiz anahtar oluşturabilirsiniz. "
-            "Anahtar bu bilgisayarın sistem anahtarlığında saklanır."
-        )
-        key_row = Adw.PasswordEntryRow()
-        key_row.set_title("Anahtar (gsk_…)")
-        key_group.add(key_row)
-        if has_key:
-            remove_row = Adw.ActionRow()
-            remove_row.set_title("Kayıtlı anahtarı sil")
-            remove_btn = Gtk.Button(label="Sil")
-            remove_btn.add_css_class("destructive-action")
-            remove_btn.set_valign(Gtk.Align.CENTER)
-            remove_row.add_suffix(remove_btn)
-            key_group.add(remove_row)
-
-            def on_remove(_):
-                ai.save_settings(settings, groq_api_key="")
-                self.refresh_setup_state()
-                dialog.close()
-            remove_btn.connect("clicked", on_remove)
-        page.add(key_group)
-
-        model_group = Adw.PreferencesGroup()
-        model_group.set_title("Model")
-        model_group.set_description("Sorular ve OBS özetin cevap üretmek için Groq'a gönderilir.")
-        model_row = Adw.ComboRow()
-        model_row.set_title("Yapay zekâ modeli")
-        model_ids = [m for m, _ in ai.GROQ_MODELS]
-        model_row.set_model(Gtk.StringList.new([label for _, label in ai.GROQ_MODELS]))
-        current = settings.get("groq_model")
-        model_row.set_selected(model_ids.index(current) if current in model_ids else 0)
-        model_group.add(model_row)
-        page.add(model_group)
-
-        def on_closed(_):
-            settings["groq_model"] = model_ids[model_row.get_selected()]
-            new_key = key_row.get_text().strip()
-            ai.save_settings(settings, groq_api_key=new_key or None)
-            self.refresh_setup_state()
-        dialog.connect("closed", on_closed)
-
-        dialog.add(page)
-        dialog.present(self.get_root())

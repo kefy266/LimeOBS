@@ -44,3 +44,6 @@ website/downloads/
 
 # E-posta bildirimi görülen kayıt listesi (yerel deneme için)
 .obs_mailer_state.json
+
+# Qt arayüzünün profil fotoğrafı önbelleği
+.cache/

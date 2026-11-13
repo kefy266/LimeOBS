@@ -4,10 +4,12 @@ LimeOBS yapay zekâ asistanı (GTK'dan bağımsız).
 Küçük modeller ham veriden hesap yaparken uyduruyor; bu yüzden puan farkları, en yüksek puan, teslim
 tarihleri gibi her şeyi önce kod hesaplar ("doğrulanmış bilgiler") ve model yalnızca bunları yorumlar.
 
-Model Groq üzerinden çalışır (OpenAI uyumlu API, ekran kartı gerektirmez). Kullanıcı kendi Groq API anahtarını
-Asistan > Ayarlar'dan girer; anahtar sistem anahtarlığında ('LimeOBS'/'groq_api_key') tutulur.
+Model Groq üzerinden çalışır ama uygulama Groq'a doğrudan bağlanmaz: istekler LimeOBS'un aracı sunucusuna
+(proxy/ klasöründeki Cloudflare Worker) gider. Groq anahtarı yalnızca o sunucuda gizli değişken olarak durur;
+uygulamada ve kullanıcıda hiçbir anahtar yoktur. Sunucu kişi başı kullanım sınırı uygular.
 """
 import json
+import os
 import time
 from datetime import date, datetime, timedelta
 
@@ -16,20 +18,13 @@ import requests
 import api_bridge
 from food_menu import parse_day_date_obj, parse_food_menu
 
-KEYRING_SERVICE = "LimeOBS"
-KEYRING_GROQ_KEY = "groq_api_key"
-GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
+# Cloudflare Worker yayınlandıktan sonra adresi buraya yazılır (ör. https://limeobs-ai.<hesap>.workers.dev).
+# Geliştirme için LIMEOBS_AI_PROXY ortam değişkeni ya da config'teki ai_assistant.proxy_url da kullanılabilir.
+AI_PROXY_URL = ""
 
 DEFAULTS = {
-    "groq_model": "openai/gpt-oss-120b",
+    "proxy_url": "",
 }
-
-# Ayarlardaki model seçenekleri (Groq'ta normal geliştirici hesabına açık sohbet modelleri)
-GROQ_MODELS = [
-    ("openai/gpt-oss-120b", "GPT-OSS 120B (önerilen)"),
-    ("openai/gpt-oss-20b", "GPT-OSS 20B (daha hızlı)"),
-    ("qwen/qwen3.8-27b", "Qwen 3.8 27B"),
-]
 
 DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
 
@@ -65,34 +60,12 @@ def load_settings():
     return settings
 
 
-def save_settings(settings, groq_api_key=None):
-    """Ayarları config'e, Groq anahtarını (verildiyse) sistem anahtarlığına yazar."""
-    cfg = {}
-    try:
-        with open(api_bridge.CONFIG_FILE, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
-    except (OSError, ValueError):
-        pass
-    cfg["ai_assistant"] = {k: settings[k] for k in DEFAULTS if k in settings}
-    with open(api_bridge.CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
-    if groq_api_key is not None:
-        import keyring
-        if groq_api_key.strip():
-            keyring.set_password(KEYRING_SERVICE, KEYRING_GROQ_KEY, groq_api_key.strip())
-        else:
-            try:
-                keyring.delete_password(KEYRING_SERVICE, KEYRING_GROQ_KEY)
-            except Exception:
-                pass
+def proxy_url():
+    return (os.environ.get("LIMEOBS_AI_PROXY") or load_settings().get("proxy_url") or AI_PROXY_URL).rstrip("/")
 
 
-def get_groq_api_key():
-    try:
-        import keyring
-        return keyring.get_password(KEYRING_SERVICE, KEYRING_GROQ_KEY)
-    except Exception:
-        return None
+def service_configured():
+    return bool(proxy_url())
 
 
 # --------------------------------------------------------------------------- Doğrulanmış bilgiler
@@ -246,36 +219,23 @@ def build_facts(force=False):
     return text
 
 
-# --------------------------------------------------------------------------- Groq
+# --------------------------------------------------------------------------- Aracı sunucu (Groq)
 
-def _ask_groq(settings, messages, on_text):
-    api_key = get_groq_api_key()
-    if not api_key:
-        raise AssistantError("Groq API anahtarı girilmemiş. Asistan > Ayarlar'dan ekleyin.")
-    model = settings.get("groq_model") or DEFAULTS["groq_model"]
-    body = {
-        "model": model,
-        "messages": messages,
-        "stream": True,
-        "temperature": 0.5,
-        "max_completion_tokens": 2048,
-    }
-    if model.startswith(("openai/gpt-oss", "qwen/")):
-        body["reasoning_effort"] = "low"     # kısa analiz; hızlı cevap
-        body["include_reasoning"] = False    # düşünme metnini değil yalnızca cevabı döndür
+def _ask_proxy(messages, on_text):
+    base = proxy_url()
+    if not base:
+        raise AssistantError("Asistan servisi henüz kurulmadı.")
     try:
-        res = requests.post(GROQ_CHAT_URL, json=body, stream=True, timeout=(10, 120),
-                            headers={"Authorization": f"Bearer {api_key}"})
+        res = requests.post(f"{base}/v1/chat", json={"messages": messages}, stream=True, timeout=(10, 120),
+                            headers={"User-Agent": "LimeOBS"})
     except requests.exceptions.RequestException:
-        raise AssistantError("Groq'a bağlanılamadı. İnternet bağlantınızı kontrol edin.")
-    if res.status_code == 401:
-        raise AssistantError("Groq API anahtarı geçersiz. Asistan > Ayarlar'dan kontrol edin.")
-    if res.status_code == 404:
-        raise AssistantError(f"'{model}' modeli Groq'ta bulunamadı. Ayarlardan başka bir model seçin.")
+        raise AssistantError("Asistan servisine bağlanılamadı. İnternet bağlantınızı kontrol edin.")
     if res.status_code == 429:
-        raise AssistantError("Groq kullanım sınırına ulaşıldı. Biraz bekleyip tekrar deneyin.")
+        raise AssistantError("Kısa sürede çok fazla soru sordun. Biraz bekleyip tekrar dene.")
+    if res.status_code == 413:
+        raise AssistantError("Soru çok uzun. Daha kısa yazmayı dene.")
     if not res.ok:
-        raise AssistantError(f"Groq hatası (HTTP {res.status_code}). Biraz sonra tekrar deneyin.")
+        raise AssistantError(f"Asistan şu an cevap veremiyor (HTTP {res.status_code}). Biraz sonra tekrar dene.")
 
     out = []
     res.encoding = "utf-8"
@@ -306,12 +266,11 @@ class Conversation:
         self.history = []
 
     def ask(self, question, on_text):
-        settings = load_settings()
         facts = build_facts()
         # Groq, GPT-OSS gibi düşünen modellerde talimatların sistem mesajı yerine kullanıcı mesajında olmasını öneriyor
         user_content = f"{SYSTEM_PROMPT}\n\nDOĞRULANMIŞ BİLGİLER:\n{facts}\n\nSORU: {question}"
         messages = self.history + [{"role": "user", "content": user_content}]
-        answer = _ask_groq(settings, messages, on_text)
+        answer = _ask_proxy(messages, on_text)
         # Geçmişte bilgileri tekrar taşımamak için yalnızca soruyu sakla
         self.history += [{"role": "user", "content": question}, {"role": "assistant", "content": answer}]
         self.history = self.history[-12:]

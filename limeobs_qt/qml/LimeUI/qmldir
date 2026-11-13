@@ -1,0 +1,32 @@
+module LimeUI
+singleton Theme 1.0 Theme.qml
+Main 1.0 Main.qml
+Shell 1.0 Shell.qml
+Sidebar 1.0 Sidebar.qml
+SettingsMenu 1.0 SettingsMenu.qml
+LoginPage 1.0 LoginPage.qml
+PageScaffold 1.0 PageScaffold.qml
+HomePage 1.0 HomePage.qml
+AssistantPage 1.0 AssistantPage.qml
+SchedulePage 1.0 SchedulePage.qml
+HomeworkPage 1.0 HomeworkPage.qml
+ExamsPage 1.0 ExamsPage.qml
+FoodPage 1.0 FoodPage.qml
+MessagesPage 1.0 MessagesPage.qml
+ProfilePage 1.0 ProfilePage.qml
+ChatMessage 1.0 ChatMessage.qml
+Composer 1.0 Composer.qml
+SectionCard 1.0 SectionCard.qml
+ListRow 1.0 ListRow.qml
+StatTile 1.0 StatTile.qml
+PointBars 1.0 PointBars.qml
+EmptyText 1.0 EmptyText.qml
+Icon 1.0 Icon.qml
+Avatar 1.0 Avatar.qml
+ExamDetail 1.0 ExamDetail.qml
+LessonBar 1.0 LessonBar.qml
+IconButton 1.0 IconButton.qml
+OButton 1.0 OButton.qml
+OCheckBox 1.0 OCheckBox.qml
+Segmented 1.0 Segmented.qml
+Spinner 1.0 Spinner.qml

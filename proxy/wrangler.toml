@@ -1,0 +1,15 @@
+name = "limeobs-ai"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+# Groq anahtarı burada DEĞİL, gizli değişken olarak tutulur:
+#   npx wrangler secret put GROQ_API_KEY
+
+# IP başına dakikada en fazla 6 soru (Cloudflare konumu başına, yaklaşık)
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 6
+  period = 60
