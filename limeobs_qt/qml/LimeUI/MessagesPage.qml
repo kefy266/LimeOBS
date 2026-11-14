@@ -11,6 +11,7 @@ PageScaffold {
 
     property string box: "inbox"
     property var openMail: null
+    property var openRow: null
     onOpenMailChanged: openMail ? reader.open() : reader.close()
     onVisibleChanged: if (!visible) openMail = null
 
@@ -22,10 +23,20 @@ PageScaffold {
         }
     }
 
-    Segmented {
-        model: [{ value: "inbox", label: qsTr("Gelen") }, { value: "sent", label: qsTr("Gönderilen") }]
-        value: page.box
-        onPicked: v => { page.box = v; page.openMail = null }
+    RowLayout {
+        Layout.fillWidth: true
+        Segmented {
+            model: [{ value: "inbox", label: qsTr("Gelen") }, { value: "sent", label: qsTr("Gönderilen") }]
+            value: page.box
+            onPicked: v => { page.box = v; page.openMail = null }
+        }
+        Item { Layout.fillWidth: true }
+        OButton {
+            text: qsTr("Yeni mesaj")
+            iconName: "pencil"
+            variant: "primary"
+            onClicked: compose.openFor("", "")
+        }
     }
 
     SectionCard {
@@ -48,6 +59,7 @@ PageScaffold {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         page.openMail = { title: mailRow.modelData.title, who: mailRow.modelData.who, body: qsTr("Yükleniyor…") }
+                        page.openRow = mailRow.modelData
                         App.openMail(mailRow.modelData.id)
                     }
                 }
@@ -87,6 +99,18 @@ PageScaffold {
                     font.weight: Font.DemiBold
                     color: Theme.text
                 }
+                OButton {
+                    visible: page.openRow !== null && page.openRow.canReply
+                    text: qsTr("Yanıtla")
+                    iconName: "mail"
+                    variant: "ghost"
+                    onClicked: {
+                        const r = page.openRow
+                        reader.close()
+                        compose.openFor("", r.id, { name: r.who, userType: r.userType, userId: r.userId },
+                                        r.title.startsWith("Ynt:") ? r.title : "Ynt: " + r.title)
+                    }
+                }
                 IconButton { iconName: "x"; tip: qsTr("Kapat"); onClicked: reader.close() }
             }
             Text {
@@ -110,4 +134,6 @@ PageScaffold {
             }
         }
     }
+
+    ComposeDialog { id: compose }
 }

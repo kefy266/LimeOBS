@@ -192,6 +192,8 @@ PageScaffold {
                             color: Theme.text
                         }
                         Text {
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
                             text: qsTr("%1 • Net %2 • D %3 / Y %4 / B %5").arg(examRow.modelData.date)
                                   .arg(page.fmt(examRow.modelData.net)).arg(examRow.modelData.dogru)
                                   .arg(examRow.modelData.yanlis).arg(examRow.modelData.bos)

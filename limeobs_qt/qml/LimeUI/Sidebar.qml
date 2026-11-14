@@ -14,9 +14,15 @@ Rectangle {
         { page: "home", icon: "home", label: qsTr("Ana Sayfa") },
         { page: "assistant", icon: "sparkle", label: qsTr("Asistan") },
         { page: "schedule", icon: "calendar", label: qsTr("Ders Programı") },
+        { page: "etut", icon: "clock", label: qsTr("Etüt ve Birebir") },
+        { page: "attendance", icon: "check", label: qsTr("Devamsızlık") },
         { page: "homework", icon: "book", label: qsTr("Ödevler") },
-        { page: "exams", icon: "chart", label: qsTr("Sınavlar") },
+        { page: "classical", icon: "pencil", label: qsTr("Yazılı Sınavlar") },
+        { page: "exams", icon: "chart", label: qsTr("Deneme Sınavları") },
         { page: "food", icon: "food", label: qsTr("Yemek Listesi") },
+        { page: "library", icon: "list", label: qsTr("Kütüphane") },
+        { page: "announcements", icon: "info", label: qsTr("Duyuru ve Etkinlik") },
+        { page: "teachers", icon: "user", label: qsTr("Öğretmenlerim") },
         { page: "messages", icon: "mail", label: qsTr("Gelen Kutusu") },
     ]
 
@@ -85,18 +91,29 @@ Rectangle {
             IconButton { iconName: "sidebar"; tip: qsTr("Kenar çubuğunu gizle"); onClicked: root.collapse() }
         }
 
-        Repeater {
-            model: root.items
-            delegate: NavRow {
-                required property var modelData
-                text: modelData.label
-                iconName: modelData.icon
-                active: root.current === modelData.page
-                onClicked: root.navigate(modelData.page)
+        Flickable {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            contentHeight: navColumn.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            clip: contentHeight > height
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+            ColumnLayout {
+                id: navColumn
+                width: parent.width
+                spacing: 2
+                Repeater {
+                    model: root.items
+                    delegate: NavRow {
+                        required property var modelData
+                        text: modelData.label
+                        iconName: modelData.icon
+                        active: root.current === modelData.page
+                        onClicked: root.navigate(modelData.page)
+                    }
+                }
             }
         }
-
-        Item { Layout.fillHeight: true }
 
         Text {
             Layout.fillWidth: true

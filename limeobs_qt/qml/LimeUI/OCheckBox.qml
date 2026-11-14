@@ -27,7 +27,7 @@ CheckBox {
         }
     }
     contentItem: Text {
-        leftPadding: control.text.length ? control.indicator.width + control.spacing : 0
+        leftPadding: control.indicator.width + (control.text.length ? control.spacing : 0)
         text: control.text
         font: control.font
         color: Theme.text

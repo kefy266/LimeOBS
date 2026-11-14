@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import LimeBackend
 
 PageScaffold {
     id: page
@@ -11,11 +12,20 @@ PageScaffold {
     readonly property var weeks: ready ? pageData.weeks : []
     readonly property int shownWeek: week >= 0 && week < weeks.length ? week : (ready ? pageData.current : 0)
 
-    Segmented {
-        visible: page.weeks.length > 1
-        model: page.weeks.map((w, i) => ({ value: String(i), label: w.title }))
-        value: String(page.shownWeek)
-        onPicked: v => page.week = Number(v)
+    RowLayout {
+        Layout.fillWidth: true
+        Segmented {
+            visible: page.weeks.length > 1
+            model: page.weeks.map((w, i) => ({ value: String(i), label: w.title }))
+            value: String(page.shownWeek)
+            onPicked: v => page.week = Number(v)
+        }
+        Item { Layout.fillWidth: true }
+        OButton {
+            text: qsTr("PDF'i aç")
+            iconName: "file"
+            onClicked: App.openFoodPdf()
+        }
     }
 
     Repeater {

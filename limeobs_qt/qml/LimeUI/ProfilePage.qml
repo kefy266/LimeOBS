@@ -72,6 +72,7 @@ PageScaffold {
                 Layout.alignment: Qt.AlignVCenter
                 spacing: 4
                 Text {
+                    Layout.fillWidth: true
                     text: App.profile.name || ""
                     font.family: Theme.font
                     font.pixelSize: Theme.fontHeading
@@ -79,12 +80,14 @@ PageScaffold {
                     color: Theme.text
                 }
                 Text {
+                    Layout.fillWidth: true
                     text: App.profile.subtitle || ""
                     font.family: Theme.font
                     font.pixelSize: Theme.fontUi
                     color: Theme.textMuted
                 }
                 Text {
+                    Layout.fillWidth: true
                     text: App.profile.school ? App.profile.school + (App.profile.term ? " • " + App.profile.term : "") : ""
                     font.family: Theme.font
                     font.pixelSize: Theme.fontSmall

@@ -14,6 +14,15 @@ ExamsPage 1.0 ExamsPage.qml
 FoodPage 1.0 FoodPage.qml
 MessagesPage 1.0 MessagesPage.qml
 ProfilePage 1.0 ProfilePage.qml
+EtutPage 1.0 EtutPage.qml
+AttendancePage 1.0 AttendancePage.qml
+ClassicalPage 1.0 ClassicalPage.qml
+LibraryPage 1.0 LibraryPage.qml
+AnnouncementsPage 1.0 AnnouncementsPage.qml
+TeachersPage 1.0 TeachersPage.qml
+ComposeDialog 1.0 ComposeDialog.qml
+HomeworkDetail 1.0 HomeworkDetail.qml
+Toast 1.0 Toast.qml
 ChatMessage 1.0 ChatMessage.qml
 Composer 1.0 Composer.qml
 SectionCard 1.0 SectionCard.qml

@@ -18,6 +18,12 @@ ApplicationWindow {
         sourceComponent: App.loggedIn ? shell : login
     }
 
+    Toast { id: toast }
+    Connections {
+        target: App
+        function onToast(message) { toast.show(message) }
+    }
+
     Component { id: login; LoginPage {} }
     Component { id: shell; Shell {} }
 }

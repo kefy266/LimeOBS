@@ -7,7 +7,8 @@ RowLayout {
     spacing: 0
     property string current: "home"
     property bool sidebarOpen: true
-    readonly property var pages: ["home", "assistant", "schedule", "homework", "exams", "food", "messages", "profile"]
+    readonly property var pages: ["home", "assistant", "schedule", "homework", "exams", "food", "messages", "profile",
+                                  "etut", "attendance", "classical", "library", "announcements", "teachers"]
 
     Sidebar {
         visible: root.sidebarOpen
@@ -34,6 +35,12 @@ RowLayout {
             FoodPage {}
             MessagesPage {}
             ProfilePage {}
+            EtutPage {}
+            AttendancePage {}
+            ClassicalPage {}
+            LibraryPage {}
+            AnnouncementsPage {}
+            TeachersPage {}
         }
 
         IconButton {

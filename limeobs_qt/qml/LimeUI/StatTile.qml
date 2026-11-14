@@ -10,6 +10,7 @@ Rectangle {
 
     Layout.fillWidth: true
     Layout.preferredWidth: 1
+    Layout.fillHeight: true
     implicitHeight: col.implicitHeight + 28
     radius: Theme.radius
     color: Theme.surface

@@ -21,6 +21,7 @@ PageScaffold {
         Repeater {
             model: list.items
             delegate: ListRow {
+                id: hwRow
                 required property var modelData
                 required property int index
                 showDivider: index > 0
@@ -29,6 +30,11 @@ PageScaffold {
                 subtitle: modelData.lesson + (modelData.teacher ? " • " + modelData.teacher : "")
                 trailing: page.tab === "pending" ? modelData.due : modelData.status
                 highlight: page.tab === "pending" && modelData.daysLeft <= 1
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: detail.show(hwRow.modelData.id, hwRow.modelData.title)
+                }
             }
         }
         EmptyText {
@@ -36,4 +42,6 @@ PageScaffold {
             text: page.tab === "pending" ? qsTr("Bekleyen ödev yok 🎉") : qsTr("Geçmiş ödev yok.")
         }
     }
+
+    HomeworkDetail { id: detail }
 }

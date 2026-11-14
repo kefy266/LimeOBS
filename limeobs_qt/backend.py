@@ -498,8 +498,177 @@ class Backend(QObject):
         def row(m, outgoing):
             return {"id": str(m.get("id")), "who": m.get("sender", "") if not outgoing else "Siz",
                     "title": m.get("mailTitle", ""), "preview": m.get("mailPreview", ""),
-                    "date": (m.get("sendDate") or "").split(" ")[0], "unread": not outgoing and not m.get("readDate")}
+                    "date": (m.get("sendDate") or "").split(" ")[0], "unread": not outgoing and not m.get("readDate"),
+                    "userType": m.get("userType") or 0, "userId": m.get("userId") or 0,
+                    "canReply": not outgoing and bool(m.get("canReply", True)) and bool(m.get("userId"))}
         return {"inbox": [row(m, False) for m in inbox or []], "sent": [row(m, True) for m in sent or []]}
+
+    def _load_attendance(self):
+        data = api_bridge.fetch_attendance_data() or {}
+        charts = data.get("charts") or {}
+        colors = {"Geldi": "#4CAF50", "Gelmedi (Özürsüz)": "#F44336", "Gelmedi (Özürlü)": "#FF9800",
+                  "Gelmedi (Faaliyet)": "#03A9F4", "Geç geldi": "#9E9E9E"}
+        counts = []
+        for series in (charts.get("attendanceGraph5") or {}).get("series") or []:
+            for item in series.get("data") or []:
+                counts.append({"name": item.get("name", ""), "value": int(self._num(item.get("value")) or 0),
+                               "color": colors.get(item.get("name"), "#9E9E9E")})
+
+        def per_category(graph):
+            g = charts.get(graph) or {}
+            axis = g.get("yAxis") if isinstance(g.get("yAxis"), dict) and (g.get("yAxis") or {}).get("data") else g.get("xAxis")
+            names = (axis or {}).get("data") or [] if isinstance(axis, dict) else []
+            attended = next((s.get("data") or [] for s in g.get("series") or [] if s.get("name") == "Geldi"), [])
+            return [{"name": tr_title(str(n)), "rate": self._num(r) or 0} for n, r in zip(names, attended)]
+
+        absences = [{"date": a.get("absenceDate", ""), "lesson": tr_title(a.get("lesson", "")),
+                     "no": str(a.get("lessonNo", "")), "teacher": tr_title(a.get("teaNameSurname", "")),
+                     "kind": a.get("description", "Devamsız"), "note": a.get("note") or ""}
+                    for a in data.get("absence_list") or []]
+        periods = data.get("periods") or []
+        return {"period": (periods[0].get("description") or "").strip() if periods else "",
+                "counts": counts, "total": sum(c["value"] for c in counts),
+                "lessons": per_category("attendanceGraph4"), "teachers": per_category("attendanceGraph6"),
+                "absences": absences}
+
+    def _load_etut(self):
+        rec = api_bridge.fetch_etut_records() or {}
+        dash = api_bridge.fetch_course_dashboard() or {}
+        counts = dash.get("courseCounts") or {}
+        items = []
+        for kind, label in (("etut", "Etüt"), ("birebir", "Birebir"), ("counseling", "Rehberlik")):
+            for r in rec.get(kind) or []:
+                items.append({"kind": label, "lesson": tr_title(r.get("lesson", "")),
+                              "teacher": tr_title(r.get("teaNameSurname", "")), "date": r.get("date", ""),
+                              "time": r.get("unitLabel", ""), "place": r.get("hallName") or ""})
+        return {"items": items,
+                "etutMonth": (counts.get("E") or {}).get("monthly", 0), "etutYear": (counts.get("E") or {}).get("yearly", 0),
+                "birebirMonth": (counts.get("B") or {}).get("monthly", 0), "birebirYear": (counts.get("B") or {}).get("yearly", 0)}
+
+    def _load_classical(self):
+        data = api_bridge.fetch_classical_exams() or {}
+        t3 = ((data.get("tables") or {}).get("classicalExamTable3") or {})
+
+        def rows(period):
+            out = []
+            for it in (t3.get(period) or {}).get("data") or []:
+                out.append({"lesson": tr_title(it.get("lesson") or it.get("ders") or it.get("sinavAd") or "Ders"),
+                            "e1": str(it.get("exam1") or it.get("yazili1") or "–"),
+                            "e2": str(it.get("exam2") or it.get("yazili2") or "–"),
+                            "e3": str(it.get("exam3") or it.get("yazili3") or "–"),
+                            "oral": str(it.get("sozlu") or it.get("kanaat") or "–"),
+                            "avg": str(it.get("ort") or it.get("average") or it.get("Puan") or "–")})
+            return out
+        cal = api_bridge.fetch_exam_days_calendar() or {}
+        return {"message": "" if data.get("success") else (data.get("msg") or "Yazılı sınav notu bulunamadı."),
+                "period1": rows("period1"), "period2": rows("period2"),
+                "calendarUrl": cal.get("view_url") or cal.get("download_url") or ""}
+
+    def _load_library(self):
+        books = []
+        for b in api_bridge.fetch_borrowed_books() or []:
+            books.append({"name": b.get("bookName") or b.get("name") or "Kitap", "author": b.get("author") or "",
+                          "borrowed": b.get("borrowDate") or "", "returned": b.get("returnDate") or "",
+                          "done": bool(b.get("isReturned"))})
+        return {"books": books}
+
+    @Slot(str)
+    def searchLibrary(self, query):
+        def worker():
+            res = api_bridge.search_library_books(query) if query.strip() else []
+            self._resultReady.emit("librarySearch", {"query": query, "results": [
+                {"name": r.get("bookName") or r.get("name") or "Kitap", "author": r.get("author") or "",
+                 "available": r.get("status") or r.get("availability") or ""} for r in res or []]})
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _load_announcements(self):
+        index = self._index()
+        anns = [{"title": a.get("title") or a.get("baslik") or "Duyuru",
+                 "date": a.get("createDate") or a.get("date") or a.get("tarih") or "",
+                 "body": html.unescape(re.sub(r"<[^>]+>", " ", a.get("content") or a.get("description") or a.get("icerik") or "")).strip()}
+                for a in index.get("announcementList") or []]
+        events = [{"title": e.get("title") or "Etkinlik", "date": e.get("eventDate") or e.get("date") or "",
+                   "place": e.get("location") or ""} for e in index.get("eventList") or []]
+        for e in api_bridge.fetch_events_data() or []:
+            events.append({"title": e.get("title") or "Etkinlik", "date": e.get("eventDate") or e.get("date") or "",
+                           "place": e.get("location") or ""})
+        return {"announcements": anns, "events": events}
+
+    def _load_teachers(self):
+        return {"teachers": sorted(({"name": tr_title(t.get("teaNameSurname", "")), "lesson": tr_title(t.get("lesson", ""))}
+                                    for t in api_bridge.fetch_teachers_data() or []), key=lambda t: t["lesson"])}
+
+    # --- mesaj gönderme
+    @Slot(str)
+    def searchReceivers(self, query):
+        def worker():
+            res = api_bridge.search_mail_receivers(query) if len(query.strip()) >= 2 else []
+            self._resultReady.emit("receivers", {"query": query, "results": [
+                {"name": tr_title(r.get("nameSurname", "")), "type": r.get("type") or "",
+                 "userType": r.get("userType"), "userId": r.get("userId")} for r in res or []]})
+        threading.Thread(target=worker, daemon=True).start()
+
+    @Slot(str, str, int, int, str)
+    def sendMail(self, title, content, user_type, user_id, reply_id):
+        def worker():
+            res = api_bridge.send_mail_message(title.strip(), content.strip(), user_type, user_id, reply_id or "")
+            ok = bool(res.get("success"))
+            self._resultReady.emit("mailSent", {"ok": ok, "message": "Mesaj gönderildi." if ok else
+                                                 (res.get("msg") or "Mesaj gönderilemedi.")})
+            if ok:
+                self._data.pop("messages", None)
+        threading.Thread(target=worker, daemon=True).start()
+
+    # --- ödev ayrıntısı ve dosyalar
+    @Slot(int)
+    def openHomework(self, hw_id):
+        def worker():
+            d = api_bridge.fetch_homework_detail(hw_id) or {}
+            def files(key):
+                return [{"name": f.get("fileName") or "Dosya", "fileId": f.get("fileId"), "hash": f.get("fileHash") or "",
+                         "kind": key} for f in d.get(key) or []]
+            body = html.unescape(re.sub(r"<br\s*/?>|</p>", "\n", d.get("description") or ""))
+            self._resultReady.emit("homeworkDetail", {
+                "id": hw_id, "title": d.get("title", ""), "lesson": tr_title(d.get("lesson", "")),
+                "teacher": tr_title(d.get("teaNameSurname", "")), "start": d.get("startDate", ""), "end": d.get("endDate", ""),
+                "status": d.get("statusName", ""), "comment": d.get("teacherComment") or "",
+                "body": re.sub(r"<[^>]+>", "", body).strip(),
+                "files": files("attachFiles") + files("answerFiles") + files("studentAttachFiles")})
+        threading.Thread(target=worker, daemon=True).start()
+
+    @Slot(int, "QVariantMap")
+    def openHomeworkFile(self, hw_id, f):
+        def worker():
+            content, err = api_bridge.download_homework_attachment(hw_id, f.get("fileId"), f.get("hash") or None,
+                                                                   f.get("kind") or "attachFiles")
+            if not content:
+                self.toast.emit(err or "Dosya indirilemedi.")
+                return
+            self._open_bytes(content, f.get("name") or "dosya")
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _open_bytes(self, content, name):
+        folder = self._root / ".cache" / "files"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / re.sub(r"[^\w.\- ]", "_", name)
+        path.write_bytes(content)
+        api_bridge.open_file_external(path)
+
+    @Slot()
+    def openFoodPdf(self):
+        def worker():
+            data = api_bridge.fetch_food_list_data()
+            if data.get("pdf_bytes"):
+                self._open_bytes(data["pdf_bytes"], "yemek-listesi.pdf")
+            else:
+                self.toast.emit("Yemek listesi PDF'i bulunamadı.")
+        threading.Thread(target=worker, daemon=True).start()
+
+    @Slot(str)
+    def openUrl(self, url):
+        import webbrowser
+        if url:
+            webbrowser.open(url)
 
     @Slot(str)
     def openMail(self, mail_id):
