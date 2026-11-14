@@ -47,3 +47,6 @@ website/downloads/
 
 # Qt arayüzünün profil fotoğrafı önbelleği
 .cache/
+
+# Wrangler yerel durum klasörü
+proxy/.wrangler/
