@@ -16,6 +16,7 @@ npx wrangler secret put GROQ_API_KEY  # Groq anahtarını sorar; yazdığın ekr
 npx wrangler deploy                   # https://limeobs-ai.<hesap>.workers.dev adresini verir
 ```
 
-Yayındaki adres: https://limeobs-ai.limeobs.workers.dev (`akbim_frontend/ai_assistant.py` → `AI_PROXY_URL`).
+Yayındaki adres: https://lime.kaganefe.com (`akbim_frontend/ai_assistant.py` → `AI_PROXY_URL`).
+workers.dev adresi bazı Güvenli İnternet profillerinde engelli olduğu için kendi alan adı kullanılıyor.
 
 Test: `curl https://limeobs-ai.<hesap>.workers.dev/health` → `ok`
