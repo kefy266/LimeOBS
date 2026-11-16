@@ -671,6 +671,30 @@ class Backend(QObject):
         api_bridge.open_file_external(path)
 
     @Slot()
+    def exportSchedulePdf(self):
+        """Haftalık ders programını PDF'e çizer, Belgeler klasörüne kaydeder ve açar."""
+        def worker():
+            try:
+                import schedule_pdf
+                from PySide6.QtCore import QStandardPaths
+
+                index = self._index()
+                monday = date.today() - timedelta(days=date.today().weekday())
+                week = [self._lessons(index, monday + timedelta(days=i)) for i in range(5)]
+                prof = self._profile or {}
+                student = prof.get("name", "")
+                subtitle = " • ".join(x for x in (prof.get("subtitle", ""), prof.get("term", "")) if x)
+                docs = Path(QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or Path.home())
+                docs.mkdir(parents=True, exist_ok=True)
+                path = docs / "LimeOBS Ders Programı.pdf"
+                schedule_pdf.render(path, week, student, subtitle)
+                api_bridge.open_file_external(path)
+                self.toast.emit(f"PDF kaydedildi: {path}")
+            except Exception as exc:
+                self.toast.emit(f"PDF oluşturulamadı: {exc}")
+        threading.Thread(target=worker, daemon=True).start()
+
+    @Slot()
     def openFoodPdf(self):
         def worker():
             data = api_bridge.fetch_food_list_data()

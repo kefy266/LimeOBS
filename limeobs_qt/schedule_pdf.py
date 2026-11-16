@@ -1,0 +1,140 @@
+"""Haftalık ders programını yatay A4 PDF olarak çizer (QPdfWriter + QPainter, ek bağımlılık yok)."""
+
+from datetime import date
+
+from PySide6.QtCore import QMarginsF, QRectF, Qt
+from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPageLayout, QPageSize, QPainter, QPdfWriter, QPen
+
+DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma"]
+
+# Ders adına göre sabit, yumuşak renkler (aynı ders her zaman aynı renk)
+_PALETTE = ["#e3f1dc", "#dcebf7", "#fbe7d3", "#efe1f5", "#fbf3cf", "#d9f1ee",
+            "#f7dde2", "#e6e6f7", "#e9f0d5", "#f3e3d7", "#dbeef7", "#f0ecdf"]
+_ACCENT = QColor("#3f8f34")
+_TEXT = QColor("#24231f")
+_MUTED = QColor("#6b6a64")
+_LINE = QColor("#dedbd0")
+
+
+def _color_for(lesson, cache):
+    if lesson not in cache:
+        cache[lesson] = QColor(_PALETTE[len(cache) % len(_PALETTE)])
+    return cache[lesson]
+
+
+def _time_key(t):
+    try:
+        h, m = t.split("-")[0].split(":")
+        return int(h) * 60 + int(m)
+    except (ValueError, IndexError):
+        return 9999
+
+
+def render(path, week, student="", subtitle=""):
+    """week: 5 elemanlı liste; her biri [{"time": "08:30-09:10", "lesson": ..., "teacher": ...}]."""
+    times = sorted({l["time"] for day in week for l in day if l.get("time")}, key=_time_key)
+    if not times:
+        raise ValueError("Ders programında ders bulunamadı.")
+    grid = {(i, l["time"]): l for i, day in enumerate(week) for l in day}
+
+    writer = QPdfWriter(str(path))
+    writer.setTitle("Ders Programı")
+    writer.setCreator("LimeOBS")
+    writer.setResolution(300)
+    writer.setPageLayout(QPageLayout(QPageSize(QPageSize.A4), QPageLayout.Landscape, QMarginsF(0, 0, 0, 0)))
+
+    p = QPainter(writer)
+    p.setRenderHint(QPainter.Antialiasing)
+    W, H = writer.width(), writer.height()
+    mm = writer.resolution() / 25.4
+    margin = 12 * mm
+
+    def font(pt, weight=QFont.Normal):
+        f = QFont("Inter")
+        f.setStyleHint(QFont.SansSerif)
+        f.setPointSizeF(pt)
+        f.setWeight(weight)
+        return f
+
+    # --- Başlık
+    x0, y = margin, margin
+    p.setPen(_TEXT)
+    p.setFont(font(20, QFont.Bold))
+    p.drawText(QRectF(x0, y, W - 2 * margin, 10 * mm), Qt.AlignLeft | Qt.AlignVCenter, "Ders Programı")
+    p.setFont(font(10))
+    p.setPen(_MUTED)
+    right = " • ".join(x for x in (student, subtitle) if x)
+    p.drawText(QRectF(x0, y, W - 2 * margin, 10 * mm), Qt.AlignRight | Qt.AlignVCenter, right)
+    y += 12 * mm
+    p.setPen(QPen(_ACCENT, 0.6 * mm))
+    p.drawLine(int(x0), int(y), int(W - margin), int(y))
+    y += 5 * mm
+
+    # --- Tablo
+    footer_h = 8 * mm
+    time_w = 24 * mm
+    head_h = 9 * mm
+    gap = 1.4 * mm
+    col_w = (W - 2 * margin - time_w) / 5
+    row_h = min(22 * mm, (H - y - margin - footer_h - head_h) / len(times))
+
+    p.setFont(font(10.5, QFont.DemiBold))
+    for i, name in enumerate(DAY_NAMES):
+        r = QRectF(x0 + time_w + i * col_w + gap / 2, y, col_w - gap, head_h - gap)
+        p.setPen(Qt.NoPen)
+        p.setBrush(_ACCENT)
+        p.drawRoundedRect(r, 1.6 * mm, 1.6 * mm)
+        p.setPen(QColor("white"))
+        p.drawText(r, Qt.AlignCenter, name)
+    y += head_h
+
+    colors = {}
+    for k, t in enumerate(times):
+        ry = y + k * row_h
+        p.setPen(_MUTED)
+        p.setFont(font(9, QFont.DemiBold))
+        p.drawText(QRectF(x0, ry, time_w - 2 * mm, row_h / 2), Qt.AlignRight | Qt.AlignBottom, f"{k + 1}. ders")
+        p.setFont(font(8))
+        p.drawText(QRectF(x0, ry + row_h / 2, time_w - 2 * mm, row_h / 2), Qt.AlignRight | Qt.AlignTop,
+                   t.replace("-", " – "))
+        for i in range(5):
+            r = QRectF(x0 + time_w + i * col_w + gap / 2, ry + gap / 2, col_w - gap, row_h - gap)
+            cell = grid.get((i, t))
+            if not cell or not cell.get("lesson"):
+                p.setPen(QPen(_LINE, 0.25 * mm, Qt.DashLine))
+                p.setBrush(Qt.NoBrush)
+                p.drawRoundedRect(r, 1.6 * mm, 1.6 * mm)
+                continue
+            p.setPen(Qt.NoPen)
+            p.setBrush(_color_for(cell["lesson"], colors))
+            p.drawRoundedRect(r, 1.6 * mm, 1.6 * mm)
+            inner = r.adjusted(2.5 * mm, 1.5 * mm, -2.5 * mm, -1.5 * mm)
+            teacher = cell.get("teacher") or ""
+            # Ders adı ve öğretmen birlikte ölçülüp hücrenin dikey ortasına yerleştirilir
+            name_font = font(10.5, QFont.DemiBold)
+            for pt in (10.5, 9.5, 8.5):
+                name_font = font(pt, QFont.DemiBold)
+                name_box = QFontMetricsF(name_font, writer).boundingRect(
+                    QRectF(0, 0, inner.width(), 10 * inner.height()), int(Qt.AlignLeft | Qt.TextWordWrap), cell["lesson"])
+                if name_box.height() <= inner.height() * (0.62 if teacher else 1):
+                    break
+            teach_h = QFontMetricsF(font(8), writer).height() if teacher else 0
+            space = 0.6 * mm if teacher else 0
+            top = inner.top() + max(0, (inner.height() - name_box.height() - space - teach_h) / 2)
+            p.setPen(_TEXT)
+            p.setFont(name_font)
+            p.drawText(QRectF(inner.left(), top, inner.width(), name_box.height()), Qt.AlignLeft | Qt.TextWordWrap,
+                       cell["lesson"])
+            if teacher:
+                p.setPen(_MUTED)
+                p.setFont(font(8))
+                p.drawText(QRectF(inner.left(), top + name_box.height() + space, inner.width(), teach_h),
+                           Qt.AlignLeft | Qt.AlignVCenter,
+                           QFontMetricsF(font(8), writer).elidedText(teacher, Qt.ElideRight, inner.width()))
+
+    # --- Alt bilgi
+    p.setPen(_MUTED)
+    p.setFont(font(8))
+    p.drawText(QRectF(margin, H - margin - footer_h / 2, W - 2 * margin, footer_h / 2), Qt.AlignLeft | Qt.AlignVCenter,
+               f"LimeOBS ile oluşturuldu • {date.today().strftime('%d.%m.%Y')}")
+    p.end()

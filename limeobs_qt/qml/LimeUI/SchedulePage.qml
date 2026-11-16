@@ -1,11 +1,23 @@
 import QtQuick
 import QtQuick.Layouts
+import LimeBackend
 
 PageScaffold {
     id: page
     pageName: "schedule"
     title: qsTr("Ders Programı")
     subtitle: ready && pageData.note ? pageData.note : qsTr("Bu haftanın dersleri")
+
+    RowLayout {
+        Layout.fillWidth: true
+        Item { Layout.fillWidth: true }
+        OButton {
+            text: qsTr("PDF oluştur")
+            iconName: "file"
+            enabled: page.ready
+            onClicked: App.exportSchedulePdf()
+        }
+    }
 
     Repeater {
         model: page.ready ? page.pageData.days : []
