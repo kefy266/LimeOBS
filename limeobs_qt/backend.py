@@ -90,6 +90,7 @@ class Backend(QObject):
         self._tg_timer.setInterval(telegram_notify.CHECK_INTERVAL_MIN * 60 * 1000)
         self._tg_timer.timeout.connect(self._telegram_check)
         self._tg_waiting = False
+        self._tg_waiting_bot = ""
         self._tg_checking = False
         self._resultReady.connect(self._on_result)
         self._loginResult.connect(self._on_login_result)
@@ -191,7 +192,7 @@ class Backend(QObject):
         self.loggedInChanged.emit()
         self.refresh("profile")
         self.refresh("home")
-        if telegram_notify.get_code():
+        if telegram_notify.is_linked():
             self._tg_timer.start()
             QTimer.singleShot(60_000, self._telegram_check)
 
@@ -199,7 +200,7 @@ class Backend(QObject):
     def logout(self):
         # Telegram bağlantısı bu hesaba aittir; başka biri giriş yaparsa onun bildirimleri gitmesin
         self._tg_timer.stop()
-        if telegram_notify.get_code():
+        if telegram_notify.is_linked():
             threading.Thread(target=self._telegram_forget, daemon=True).start()
         api_bridge.clear_active_session(clear_saved_login=True)
         self._conversation.reset()
@@ -256,15 +257,12 @@ class Backend(QObject):
             subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
 
     def _load_telegram(self):
-        code = telegram_notify.get_code()
-        bot = telegram_notify.bot_name()
-        linked = bool(code) and telegram_notify.is_linked(code)
         settings = telegram_notify.load_settings(self._root)
         return {
-            "available": bool(bot),
-            "bot": bot or "",
-            "linked": linked,
+            "linked": telegram_notify.is_linked(),
+            "bot": settings.get("bot", ""),
             "waiting": self._tg_waiting,
+            "waitingBot": self._tg_waiting_bot,
             "kinds": [{"key": k, "label": v, "on": k in (settings.get("kinds") or [])}
                       for k, v in telegram_notify.LABELS.items()],
             "backgroundSupported": self._background_supported(),
@@ -283,37 +281,37 @@ class Backend(QObject):
             except Exception as e:
                 print(f"[LimeOBS] Telegram: {type(e).__name__}: {e}")
                 self.toast.emit("Telegram işlemi başarısız oldu.")
-            self._resultReady.emit("telegram", self._safe_telegram_state())
+            self._resultReady.emit("telegram", self._load_telegram())
         threading.Thread(target=worker, daemon=True).start()
 
-    def _safe_telegram_state(self):
-        try:
-            return self._load_telegram()
-        except Exception:
-            return {"error": "Telegram durumu alınamadı. Bağlantını kontrol et."}
-
-    @Slot()
-    def telegramConnect(self):
+    @Slot(str)
+    def telegramConnect(self, token):
+        """Kullanıcının kendi bot anahtarıyla bağlanır."""
         if self._tg_waiting:
             return
+        token = (token or "").strip()
 
         def job():
-            bot = telegram_notify.bot_name()
-            if not bot:
-                raise telegram_notify.TelegramError("Bildirim botu henüz hazır değil.")
-            code = telegram_notify.new_code()
-            self._tg_waiting = True
-            self._resultReady.emit("telegram", self._safe_telegram_state())
+            bot = telegram_notify.verify_token(token)
+            self._tg_waiting, self._tg_waiting_bot = True, bot
+            self._resultReady.emit("telegram", self._load_telegram())
             import webbrowser
-            webbrowser.open(f"https://t.me/{bot}?start={code}")
+            webbrowser.open(f"https://t.me/{bot}")
             try:
-                if not telegram_notify.wait_for_link(code, cancelled=lambda: not self._tg_waiting):
-                    telegram_notify.clear_code()
-                    raise telegram_notify.TelegramError("Telegram'da Başlat'a basılmadı. Tekrar deneyebilirsin.")
+                chat, name = telegram_notify.wait_for_chat(token, cancelled=lambda: not self._tg_waiting)
             finally:
-                self._tg_waiting = False
+                self._tg_waiting, self._tg_waiting_bot = False, ""
+            if not chat:
+                raise telegram_notify.TelegramError(f"@{bot} sohbetinde Başlat'a basılmadı. Tekrar deneyebilirsin.")
+            telegram_notify.save(token, chat)
+            settings = telegram_notify.load_settings(self._root)
+            settings["bot"] = bot
+            telegram_notify.save_settings(self._root, settings)
             telegram_notify.mark_all_seen(self._root)
-        self._telegram_run(job, "Telegram bağlandı! Yeni ödev ve mesajlar telefonuna gelecek.")
+            telegram_notify.send(
+                f"✅ <b>LimeOBS bağlandı{', ' + html.escape(name) if name else ''}!</b>\n"
+                "Yeni ödev, mesaj, duyuru ve sınav sonuçlarını buradan bildireceğim. 🍋")
+        self._telegram_run(job, "Telegram bağlandı! Bildirimler telefonuna gelecek.")
 
     @Slot()
     def telegramCancel(self):
@@ -327,12 +325,7 @@ class Backend(QObject):
     @Slot()
     def telegramDisconnect(self):
         self._tg_timer.stop()
-
-        def job():
-            telegram_notify.unlink()
-            if self._background_enabled():
-                self._set_background(False)
-        self._telegram_run(job, "Telegram bağlantısı kaldırıldı.")
+        self._telegram_run(self._telegram_forget, "Telegram bağlantısı kaldırıldı.")
 
     @Slot(str, bool)
     def telegramSetKind(self, kind, on):
@@ -348,15 +341,12 @@ class Backend(QObject):
                            "Uygulama kapalıyken de kontrol edilecek." if on else "Arka plan kontrolü kapatıldı.")
 
     def _telegram_forget(self):
-        try:
-            telegram_notify.unlink()
-        except Exception:
-            telegram_notify.clear_code()
+        telegram_notify.clear()
         if self._background_enabled():
             self._set_background(False)
 
     def _telegram_check(self):
-        if self._tg_checking or not telegram_notify.get_code():
+        if self._tg_checking or not telegram_notify.is_linked():
             return
         self._tg_checking = True
 

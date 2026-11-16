@@ -22,10 +22,3 @@ namespace_id = "1001"
   [ratelimits.simple]
   limit = 6
   period = 60
-
-# Telegram bildirimleri: bağlantı kodu → sohbet kimliği eşlemeleri
-#   npx wrangler secret put TELEGRAM_BOT_TOKEN   (BotFather'dan alınan LimeOBS botu anahtarı)
-#   TG_WEBHOOK_SECRET: Telegram'ın webhook isteklerini doğrulamak için rastgele değer (gizli değişken)
-[[kv_namespaces]]
-binding = "TG"
-id = "85d6f05840be4c3ca93ea4f2518e68c4"

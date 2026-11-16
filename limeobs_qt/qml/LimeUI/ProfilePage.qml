@@ -122,81 +122,179 @@ PageScaffold {
     }
 
     SectionCard {
+        id: tgCard
         title: qsTr("Telefon bildirimleri")
         iconName: "bell"
-        badge: page.tg && page.tg.linked ? qsTr("Telegram bağlı") : ""
+        badge: page.tg && page.tg.linked ? "Telegram • @" + page.tg.bot : ""
 
-        Text {
+        component Step: RowLayout {
+            id: step
+            property int number
+            property string text
             Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            font.family: Theme.font
-            font.pixelSize: Theme.fontUi
-            color: Theme.textMuted
-            text: !page.tg ? qsTr("Durum alınıyor…")
-                : page.tg.error ? page.tg.error
-                : page.tg.waiting ? qsTr("Telegram açıldı. Botun sohbetinde <b>Başlat</b>'a bas; bağlantı kendiliğinden tamamlanacak.")
-                : !page.tg.available ? qsTr("Telefon bildirimleri yakında. (Bildirim botu henüz hazır değil.)")
-                : page.tg.linked ? qsTr("Yeni ödev, mesaj, duyuru ve sınav sonuçları Telegram'dan telefonuna gelir. Uygulama açıkken %1 dakikada bir kontrol edilir.").arg(page.tg.interval)
-                : qsTr("Yeni ödev, mesaj ve sınav sonuçlarını telefonuna Telegram'dan al. Bağlanmak için Telegram yüklü olmalı; kişisel bilgi ya da şifre istenmez.")
-            textFormat: Text.StyledText
+            spacing: 10
+            Rectangle {
+                Layout.alignment: Qt.AlignTop
+                implicitWidth: 22
+                implicitHeight: 22
+                radius: 11
+                color: Theme.accentSoft
+                Text {
+                    anchors.centerIn: parent
+                    text: step.number
+                    font.family: Theme.font
+                    font.pixelSize: Theme.fontSmall
+                    font.weight: Font.DemiBold
+                    color: Theme.accent
+                }
+            }
+            Text {
+                Layout.fillWidth: true
+                text: step.text
+                textFormat: Text.StyledText
+                wrapMode: Text.WordWrap
+                font.family: Theme.font
+                font.pixelSize: Theme.fontUi
+                color: Theme.text
+                lineHeight: 1.1
+            }
         }
 
-        // Bildirim türleri
-        Flow {
-            visible: !!page.tg && page.tg.linked
+        // --- Bağlı değil: kendi botunu oluşturma talimatları
+        ColumnLayout {
+            visible: !!page.tg && !page.tg.linked && !page.tg.waiting
             Layout.fillWidth: true
-            Layout.topMargin: 4
-            spacing: 14
-            Repeater {
-                model: page.tg && page.tg.kinds ? page.tg.kinds : []
-                delegate: OCheckBox {
-                    required property var modelData
-                    text: modelData.label
-                    checked: modelData.on
-                    onToggled: App.telegramSetKind(modelData.key, checked)
+            spacing: 10
+            Text {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                font.family: Theme.font
+                font.pixelSize: Theme.fontUi
+                color: Theme.textMuted
+                text: qsTr("Yeni ödev, mesaj, duyuru ve sınav sonuçlarını telefonuna Telegram'dan al. Kendi botunu oluşturursun; anahtarı yalnızca bu bilgisayarın anahtarlığında saklanır, kimseyle paylaşılmaz.")
+            }
+            Step { number: 1; text: qsTr("Telegram'da <b>@BotFather</b>'ı aç (aşağıdaki düğme).") }
+            Step { number: 2; text: qsTr("<b>/newbot</b> yaz. Bota bir ad ver (örn. <i>LimeOBS Bildirim</i>), sonra sonu <b>bot</b> ile biten bir kullanıcı adı seç (örn. <i>ayse_limeobs_bot</i>).") }
+            Step { number: 3; text: qsTr("BotFather'ın verdiği anahtarı kopyala. <i>123456789:AAE…</i> gibi görünür.") }
+            Step { number: 4; text: qsTr("Anahtarı aşağıya yapıştır ve <b>Bağla</b>'ya bas. Açılan bot sohbetinde <b>Başlat</b>'a dokun.") }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 4
+                spacing: 8
+                TextField {
+                    id: tokenField
+                    Layout.fillWidth: true
+                    implicitHeight: 40
+                    leftPadding: 12
+                    echoMode: TextInput.Password
+                    placeholderText: qsTr("Bot anahtarı")
+                    font.family: Theme.font
+                    font.pixelSize: Theme.fontUi
+                    color: Theme.text
+                    placeholderTextColor: Theme.textFaint
+                    onAccepted: connectBtn.clicked()
+                    background: Rectangle {
+                        radius: Theme.radiusSm + 2
+                        color: Theme.surfaceAlt
+                        border.width: 1
+                        border.color: tokenField.activeFocus ? Theme.accent : Theme.border
+                    }
+                }
+                OButton {
+                    text: qsTr("BotFather'ı aç")
+                    iconName: "external"
+                    onClicked: App.openUrl("https://t.me/BotFather")
+                }
+                OButton {
+                    id: connectBtn
+                    text: qsTr("Bağla")
+                    variant: "primary"
+                    enabled: tokenField.text.trim().length > 20
+                    onClicked: {
+                        App.telegramConnect(tokenField.text)
+                        tokenField.text = ""
+                    }
                 }
             }
         }
 
-        OCheckBox {
-            visible: !!page.tg && page.tg.linked && page.tg.backgroundSupported
-            Layout.topMargin: 2
-            text: qsTr("Uygulama kapalıyken de kontrol et")
-            checked: !!page.tg && page.tg.background
-            onToggled: App.telegramSetBackground(checked)
-        }
-
+        // --- Bağlanıyor: Başlat'a basılmasını bekle
         RowLayout {
+            visible: !!page.tg && page.tg.waiting
             Layout.fillWidth: true
-            Layout.topMargin: 6
-            spacing: 8
-            visible: !!page.tg && !page.tg.error && page.tg.available
-            Item { Layout.fillWidth: true }
-            Spinner { visible: !!page.tg && page.tg.waiting }
+            spacing: 12
+            Spinner {}
+            Text {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                textFormat: Text.StyledText
+                font.family: Theme.font
+                font.pixelSize: Theme.fontUi
+                color: Theme.text
+                text: page.tg ? qsTr("Telegram'da <b>@%1</b> sohbeti açıldı. <b>Başlat</b>'a dokun ya da bir mesaj yaz; bağlantı kendiliğinden tamamlanacak.").arg(page.tg.waitingBot) : ""
+            }
             OButton {
-                visible: !!page.tg && page.tg.waiting
                 text: qsTr("Vazgeç")
                 onClicked: App.telegramCancel()
             }
-            OButton {
-                visible: !!page.tg && page.tg.linked
-                text: qsTr("Bağlantıyı kaldır")
-                variant: "danger"
-                onClicked: App.telegramDisconnect()
+        }
+
+        // --- Bağlı
+        ColumnLayout {
+            visible: !!page.tg && page.tg.linked
+            Layout.fillWidth: true
+            spacing: 8
+            Text {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                font.family: Theme.font
+                font.pixelSize: Theme.fontUi
+                color: Theme.textMuted
+                text: page.tg ? qsTr("Bildirimler @%1 botundan telefonuna geliyor. Uygulama açıkken %2 dakikada bir kontrol edilir.").arg(page.tg.bot).arg(page.tg.interval) : ""
             }
-            OButton {
-                visible: !!page.tg && page.tg.linked
-                text: qsTr("Deneme bildirimi")
-                iconName: "bell"
-                onClicked: App.telegramTest()
+            Flow {
+                Layout.fillWidth: true
+                spacing: 14
+                Repeater {
+                    model: page.tg && page.tg.kinds ? page.tg.kinds : []
+                    delegate: OCheckBox {
+                        required property var modelData
+                        text: modelData.label
+                        checked: modelData.on
+                        onToggled: App.telegramSetKind(modelData.key, checked)
+                    }
+                }
             }
-            OButton {
-                visible: !!page.tg && !page.tg.linked && !page.tg.waiting
-                text: qsTr("Telegram'a bağla")
-                iconName: "external"
-                variant: "primary"
-                onClicked: App.telegramConnect()
+            OCheckBox {
+                visible: !!page.tg && page.tg.backgroundSupported
+                text: qsTr("Uygulama kapalıyken de kontrol et")
+                checked: !!page.tg && page.tg.background
+                onToggled: App.telegramSetBackground(checked)
             }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Item { Layout.fillWidth: true }
+                OButton {
+                    text: qsTr("Bağlantıyı kaldır")
+                    variant: "danger"
+                    onClicked: App.telegramDisconnect()
+                }
+                OButton {
+                    text: qsTr("Deneme bildirimi")
+                    iconName: "bell"
+                    onClicked: App.telegramTest()
+                }
+            }
+        }
+
+        Text {
+            visible: !page.tg
+            text: qsTr("Durum alınıyor…")
+            font.family: Theme.font
+            font.pixelSize: Theme.fontUi
+            color: Theme.textMuted
         }
     }
 

@@ -1,17 +1,17 @@
 """
-LimeOBS telefon bildirimleri (Telegram).
+LimeOBS telefon bildirimleri (Telegram) — herkes kendi botunu kullanır.
 
-Uygulama Telegram'a doğrudan bağlanmaz: istekler LimeOBS aracı sunucusuna (proxy/worker.js) gider, bot
-anahtarı yalnızca orada durur. Bağlarken uygulama rastgele bir bağlantı kodu üretir ve kullanıcıyı
-t.me/<bot>?start=<kod> adresine gönderir; kullanıcı Başlat'a basınca sunucu bu kodu kullanıcının Telegram
-sohbetiyle eşler. Kod sistem anahtarlığında saklanır ve o sohbete bildirim göndermenin tek anahtarıdır.
+Kullanıcı Telegram'da @BotFather ile kendi botunu oluşturur ve verdiği anahtarı uygulamaya yapıştırır.
+Uygulama anahtarı doğrular, botun sohbetini açar; kullanıcı Başlat'a basınca sohbet kimliğini getUpdates ile
+bulur. Anahtar ve sohbet kimliği yalnızca bu bilgisayarın sistem anahtarlığında saklanır; istekler doğrudan
+api.telegram.org'a gider, hiçbir LimeOBS sunucusundan geçmez.
 
-Yeni kayıt takibi: ödevler, gelen mesajlar, duyurular, OBS bildirimleri ve sınav sonuçları. İlk kontrolde
+Yeni kayıt takibi: ödevler, gelen mesajlar, duyurular, OBS bildirimleri ve sınav sonuçları. Bağlanınca
 mevcut kayıtlar "görüldü" sayılır (eski her şey bildirilmez); sonraki kontrollerde yalnızca yeniler gönderilir.
 """
 import html
 import json
-import secrets
+import re
 import time
 from pathlib import Path
 
@@ -23,8 +23,10 @@ import ai_assistant
 import api_bridge
 
 SERVICE = "LimeOBS"
-CODE_KEY = "telegram_app_link_code"
+TOKEN_KEY = "telegram_app_bot_token"
+CHAT_KEY = "telegram_app_chat_id"
 CHECK_INTERVAL_MIN = 15
+TOKEN_RE = re.compile(r"^\d{5,15}:[A-Za-z0-9_-]{30,60}$")
 
 LABELS = {
     "homework": "📚 Yeni ödev",
@@ -39,79 +41,97 @@ class TelegramError(Exception):
     """Kullanıcıya gösterilecek Türkçe hata mesajı taşır."""
 
 
-def _url(path):
-    return ai_assistant.proxy_url().rstrip("/") + path
-
-
-def _post(path, payload):
+def _call(token, method, **params):
     try:
-        res = requests.post(_url(path), json=payload, timeout=20)
+        res = requests.post(f"https://api.telegram.org/bot{token}/{method}", json=params, timeout=25)
     except requests.RequestException:
-        raise TelegramError("LimeOBS sunucusuna bağlanılamadı. İnternet bağlantını kontrol et.")
-    if res.status_code == 429:
-        raise TelegramError("Çok sık denendi, biraz bekleyip tekrar dene.")
-    if res.status_code == 410:
-        clear_code()
-        raise TelegramError("Botu Telegram'da engellemişsin; bağlantı kaldırıldı. Tekrar bağlanabilirsin.")
-    if res.status_code == 404:
-        return {"error": "not_linked"}
-    if not res.ok:
-        raise TelegramError(f"Telegram bildirimi gönderilemedi (HTTP {res.status_code}).")
-    return res.json()
-
-
-# ------------------------------------------------------------------ bağlantı kodu
-
-def get_code():
+        raise TelegramError("Telegram'a bağlanılamadı. İnternet bağlantını kontrol et.")
     try:
-        return keyring.get_password(SERVICE, CODE_KEY)
+        data = res.json()
+    except ValueError:
+        data = {}
+    if data.get("ok"):
+        return data["result"]
+    code = data.get("error_code") or res.status_code
+    if code == 401 or code == 404:
+        raise TelegramError("Bot anahtarı geçersiz. BotFather'ın verdiği anahtarı eksiksiz yapıştırdığından emin ol.")
+    if code == 403:
+        raise TelegramError("Bot engellenmiş ya da sohbet silinmiş. Botun sohbetini açıp Başlat'a bas, sonra tekrar bağlan.")
+    if code == 409:
+        raise TelegramError("Bu bot başka bir yerde kullanılıyor (webhook ya da başka bir program). LimeOBS için yeni bir bot oluştur.")
+    if code == 429:
+        raise TelegramError("Telegram çok sık istek aldı, biraz bekleyip tekrar dene.")
+    raise TelegramError(f"Telegram hatası: {data.get('description') or code}")
+
+
+# ------------------------------------------------------------------ anahtarlık
+
+def _get(key):
+    try:
+        return keyring.get_password(SERVICE, key)
     except KeyringError:
         return None
 
 
-def new_code():
-    code = secrets.token_urlsafe(32)  # 43 karakter, Telegram start parametresine uygun
-    keyring.set_password(SERVICE, CODE_KEY, code)
-    return code
+def credentials():
+    """(bot anahtarı, sohbet kimliği); bağlı değilse (None, None)."""
+    token, chat = _get(TOKEN_KEY), _get(CHAT_KEY)
+    return (token, chat) if token and chat else (None, None)
 
 
-def clear_code():
-    try:
-        keyring.delete_password(SERVICE, CODE_KEY)
-    except (PasswordDeleteError, KeyringError):
-        pass
+def is_linked():
+    return credentials()[0] is not None
 
 
-# ------------------------------------------------------------------ sunucu işlemleri
-
-def bot_name():
-    """Bildirim botunun kullanıcı adı; sunucuda bot kurulmamışsa None."""
-    try:
-        return requests.get(_url("/tg/info"), timeout=15).json().get("bot")
-    except (requests.RequestException, ValueError):
-        raise TelegramError("LimeOBS sunucusuna bağlanılamadı. İnternet bağlantını kontrol et.")
+def clear():
+    for key in (TOKEN_KEY, CHAT_KEY):
+        try:
+            keyring.delete_password(SERVICE, key)
+        except (PasswordDeleteError, KeyringError):
+            pass
 
 
-def is_linked(code=None):
-    code = code or get_code()
-    return bool(code) and bool(_post("/tg/status", {"code": code}).get("linked"))
+# ------------------------------------------------------------------ bağlanma
+
+def verify_token(token):
+    """Anahtarı doğrular; botun kullanıcı adını döner."""
+    token = (token or "").strip()
+    if not TOKEN_RE.match(token):
+        raise TelegramError("Bu bir bot anahtarına benzemiyor. Anahtar \"123456789:AAE…\" biçiminde olmalı.")
+    return _call(token, "getMe")["username"]
+
+
+def wait_for_chat(token, timeout=180, cancelled=lambda: False):
+    """Kullanıcı botun sohbetinde Başlat'a basana (ya da bir mesaj yazana) kadar bekler; (sohbet kimliği, ad) döner."""
+    offset = None
+    # Daha önce gelmiş eski mesajları atla: yalnızca bağlanma başladıktan sonraki mesajlar sayılır
+    old = _call(token, "getUpdates", timeout=0)
+    if old:
+        offset = old[-1]["update_id"] + 1
+    end = time.time() + timeout
+    while time.time() < end and not cancelled():
+        params = {"timeout": 5, "allowed_updates": ["message"]}
+        if offset is not None:
+            params["offset"] = offset
+        for u in _call(token, "getUpdates", **params):
+            offset = u["update_id"] + 1
+            chat = (u.get("message") or {}).get("chat") or {}
+            if chat.get("type") == "private":
+                return str(chat["id"]), chat.get("first_name") or ""
+    return None, None
+
+
+def save(token, chat_id):
+    keyring.set_password(SERVICE, TOKEN_KEY, token.strip())
+    keyring.set_password(SERVICE, CHAT_KEY, chat_id)
 
 
 def send(text):
-    code = get_code()
-    if not code:
+    token, chat = credentials()
+    if not token:
         raise TelegramError("Telegram bağlı değil.")
-    if _post("/tg/send", {"code": code, "text": text[:3800]}).get("error") == "not_linked":
-        raise TelegramError("Telegram bağlantısı bulunamadı (botta /stop yazılmış olabilir). Tekrar bağlan.")
-
-
-def unlink():
-    code = get_code()
-    if code:
-        try:
-            _post("/tg/unlink", {"code": code})
-        finally:
-            clear_code()
+    _call(token, "sendMessage", chat_id=chat, text=text[:4000], parse_mode="HTML",
+          link_preview_options={"is_disabled": True})
 
 
 # ------------------------------------------------------------------ ayarlar ve durum dosyaları
@@ -176,7 +196,7 @@ def format_message(new):
 
 def check_and_notify(data_dir):
     """Yeni kayıtları bulur ve Telegram'a gönderir. Döner: gönderilen kayıt sayısı (ilk çalıştırmada 0)."""
-    if not get_code():
+    if not is_linked():
         return 0
     if not api_bridge.ensure_valid_session():
         raise TelegramError("OBS oturumu açılamadı.")
@@ -202,16 +222,3 @@ def check_and_notify(data_dir):
 def mark_all_seen(data_dir):
     """Bağlanınca mevcut kayıtları görüldü say (eski kayıtlar bir anda gönderilmesin)."""
     _state_path(data_dir).write_text(json.dumps({k: sorted(v) for k, v in collect_items().items()}), encoding="utf-8")
-
-
-def wait_for_link(code, timeout=180, interval=3, cancelled=lambda: False):
-    """Kullanıcı Telegram'da Başlat'a basana kadar bekler."""
-    end = time.time() + timeout
-    while time.time() < end and not cancelled():
-        try:
-            if is_linked(code):
-                return True
-        except TelegramError:
-            pass
-        time.sleep(interval)
-    return False
