@@ -64,8 +64,20 @@ def tour(app, tries=0):
                         return
                 print(f"HomeworkDetail bulunamadı ({len(found)})", flush=True)
             QTimer.singleShot(1500, open_detail)
-        name = STEPS[k].replace(":", "-").replace("+", "_")
-        QTimer.singleShot(6000, lambda: (window.grabWindow().save(str(OUT / f"{k}_{name}.png")), step(k + 1)))
+        wait = 6000
+        if extra.startswith("ask:"):
+            question = extra[4:]
+            wait = 40000
+
+            def ask():
+                for obj in window.findChildren(QObject):
+                    if obj.metaObject().className().startswith("AssistantPage"):
+                        QMetaObject.invokeMethod(obj, "ask", Q_ARG("QVariant", question))
+                        return
+                print("AssistantPage bulunamadı", flush=True)
+            QTimer.singleShot(1500, ask)
+        name = STEPS[k].split("+")[0] + ("_" + extra.split(":")[0] if extra else "")
+        QTimer.singleShot(wait, lambda: (window.grabWindow().save(str(OUT / f"{k}_{name}.png")), step(k + 1)))
 
     step(0)
 

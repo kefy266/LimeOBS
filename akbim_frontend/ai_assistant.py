@@ -36,7 +36,11 @@ puan, kalan gün sayısı gibi hesaplar zaten yapılmış durumda; kendin yenide
 bilmiyorsan "OBS'de bu bilgi yok" de.
 - Kısa ve net yaz: birkaç cümle ya da en fazla 6 maddelik liste. Gerektiğinde **kalın** kullanabilirsin.
 - Samimi ve cesaretlendirici ol ama abartma. Çalışma önerilerin somut olsun (hangi ders, ne kadar süre).
-- Ödevin çözümünü yazma; nasıl yaklaşacağını ve neye dikkat edeceğini anlat."""
+- Ödevin çözümünü yazma; nasıl yaklaşacağını ve neye dikkat edeceğini anlat.
+- Tarihleri bilgilerdeki "Bugün" satırına göre yorumla. "Bu hafta" bugünün içinde olduğu haftadır. Bugün okul \
+yoksa (tatil) bunu cevabın başında söyle ve planı tatil günlerine göre yap; okulun açıldığı haftayı "bu hafta" diye anlatma.
+- Biçim: tablo ve iç içe (girintili) liste kullanma. Gerekirse kısa bir başlık (##) ve tek seviyeli "- " listesi kullan, \
+her madde tek satır olsun."""
 
 QUICK_ACTIONS = [
     ("Haftamı analiz et", "Bu haftaki ödev ve ders yükümü analiz et, nelere öncelik vermeliyim?"),
@@ -187,11 +191,19 @@ def build_facts(force=False):
     lessons = _lessons_for(index, tomorrow)
     lines.append(f"{_fmt(tomorrow)} dersleri: " + (", ".join(lessons) if lessons else "yok") + ".")
 
-    menu = _menu_for(today if today.weekday() < 5 else tomorrow)
-    if menu:
-        lines.append("Öğle yemeği: " + ", ".join(_tr_title(m) for m in menu) + ".")
+    if school_calendar.is_school_day(today):
+        week_start = today - timedelta(days=today.weekday())
+        lines.append(f"Bu hafta: {_fmt(week_start)} – {_fmt(week_start + timedelta(days=4))}.")
+    else:
+        lines.append(f"Bu hafta okul yok; tatildeki günler ödevler ve tekrar için kullanılabilir. "
+                     f"Okulun açıldığı hafta: {_fmt(tomorrow)} – {_fmt(tomorrow + timedelta(days=4 - tomorrow.weekday()))}.")
 
-    pending = []
+    menu_day = today if school_calendar.is_school_day(today) else tomorrow
+    menu = [m for m in _menu_for(menu_day) if m.strip().lower() not in ("tatil", "tati̇l")]
+    if menu:
+        lines.append(f"{_fmt(menu_day)} öğle yemeği: " + ", ".join(_tr_title(m) for m in dict.fromkeys(menu)) + ".")
+
+    pending, seen = [], set()
     for h in api_bridge.fetch_homeworks_list() or []:
         if h.get("status") == 1:  # Tamamlandı
             continue
@@ -199,7 +211,9 @@ def build_facts(force=False):
             due = datetime.strptime(h.get("endDate", ""), "%Y-%m-%d").date()
         except ValueError:
             continue
-        if due >= today:
+        key = (h.get("title", ""), h.get("lesson", ""), due)
+        if due >= today and key not in seen:
+            seen.add(key)
             pending.append((due, h))
     pending.sort(key=lambda x: x[0])
     lines.append(f"Teslim edilmemiş ve süresi geçmemiş ödevler ({len(pending)} adet):")
