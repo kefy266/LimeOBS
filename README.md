@@ -8,98 +8,55 @@
 
 ## ✨ Özellikler
 
-* 🧊 **Liquid Glass Tasarımı:** macOS / modern cam tasarımından ilham alan nötr buzlu cam (frosted glass) ve şeffaf kart katmanları.
-* 🎨 **3 Farklı Tema Desteği:**
-  * **Liquid Glass:** Nötr, derin ve şeffaf buzlu cam arayüzü.
-  * **Koyu (Dark):** Göz yormayan, kontrastı dengeli karanlık tema.
-  * **Beyaz (Light):** Kristal netliğinde, aydınlık ve ferah açık tema.
-* 🔘 **Tam Yuvarlatılmış Geometri:** Modern pill butonlar, akıcı köşe radyanları ve zarif kenarlıklar.
-* 👨‍👩‍👧 **Akıllı Veli Paneli & Kolay Geçiş:**
-  * Veli girişi yapıldığında karmaşık listeler yerine öğrencinin temiz özet kartı (Fotoğraf, Devamsızlık, Yaklaşan Sınavlar, Aktif Ödevler).
-  * Tek tıkla detaylı öğrenci görünümüne geçiş ve geri dönüş imkanı.
-* ✉️ **Öğretmenlere Mesaj Gönderme & Posta Kutusu:**
-  * Gelen ve giden mesajları okuma, ek dosyaları görüntüleme.
-  * Öğretmenler sekmesinden veya arama kutusundan isimle öğretmen bularak anında mesaj iletme ve yanıtlama.
-* 📅 **Canlı Ders Sayacı & Program:** Günün aktif dersini ve sıradaki dersin kalan süresini canlı gösteren geri sayım rozetleri.
-* 📚 **Ödevler & Ek Dosyalar:** Teslim durumları, öğretmen notları ve ekli ödev dosyalarını tek tıkla indirme.
-* 📊 **Devamsızlık & Sınavlar:** Ayrıntılı devamsızlık saatleri, karne ve sınav notları takibi.
-* 📑 **Dahili PDF Görüntüleyici:** Ödev veya mesaj eklerindeki PDF dosyalarını harici bir programa ihtiyaç duymadan uygulama içinde sayfa gezinmeli ve zoom destekli okuma.
-* 🔔 **Uygulama Kapalıyken Arka Plan Bildirimleri:** `systemd` kullanıcı servisi ve `notification_daemon.py` sayesinde LimeOBS kapalı olsa dahi yeni ödev, mesaj veya duyuru geldiğinde masaüstü bildirimi alma.
-* 🍲 **Yemekhane Menüsü:** Günün yemek listesi ve kalori bilgileri.
-* 🏫 **Çoklu Okul / Sunucu Desteği:** Tedem Koleji ve Akbim altyapısını kullanan tüm okulların OBS sunucu adresleriyle uyumlu.
+* 🏠 **Ana sayfa:** canlı ders sayacı, çanta hatırlatıcısı, günün yemeği, aktif ödevler ve son denemeler.
+* 🤖 **Yapay zekâ asistanı:** ödev, sınav ve program sorularını OBS verilerine dayanarak cevaplar (Groq, uygulama içinde anahtar gerekmez).
+* 🏖️ **Okul takvimi:** MEB ara tatilleri, yarıyıl ve resmî tatiller; tatil haftasında okulun açılacağı haftanın programı gösterilir.
+* 📅 **Ders programı:** haftalık program ve logolu, okul/sınıf adlı **PDF çıktısı**.
+* 📚 **Ödevler:** teslim durumları, öğretmen notları ve ek dosyalar.
+* 📊 **Sınavlar:** deneme ve yazılı sonuçları, ders bazlı karne, seçilen sınavların ortalaması.
+* ✉️ **Mesajlar:** gelen kutusu, okuma, öğretmenlere yazma ve yanıtlama.
+* 🍲 **Yemek listesi**, devamsızlık, etüt/birebir, kütüphane, duyurular, öğretmenler ve profil sayfaları.
+* 🌗 Açık / koyu / sistem teması.
+* 📱 **Android uygulaması** (`android` dalı) ve 🔔 Telegram/e-posta bildirimleri (`scripts/`).
 
 ---
 
-## 🚀 Kurulum ve Çalıştırma
+## 🚀 Kaynak koddan çalıştırma
 
-### Gereksinimler
-* **Linux:** Python 3.10+, GTK4, Libadwaita (`libadwaita-1`)
-* Python Paketleri: `PyGObject`, `requests`, `beautifulsoup4`, `flask`
+Gereksinim: Python 3.10+ (sistem GTK'sı vb. gerekmez; arayüz Qt Quick / PySide6).
 
-### Kaynak Koddan Çalıştırma
 ```bash
-# Bağımlılıkları yükleyin
-./venv/bin/pip install -r requirements.txt # (veya sistem python ile)
+python3 -m venv venv
+./venv/bin/pip install -r requirements.txt
+./venv/bin/python limeobs_qt/main.py
+```
 
-# Uygulamayı başlatın
-python akbim_frontend/main.py
-# veya sanal ortam ile:
-./venv/bin/python akbim_frontend/main.py
+Uygulama menüsüne ve KRunner'a eklemek için (Linux):
+
+```bash
+./install_desktop.sh
 ```
 
 ---
 
-## 📦 Dağıtım ve Paketleme (Packaging)
+## 📦 Paketleme
 
-### 1. Linux İkili Dosyası & AppImage
-PyInstaller ile tek dosya derlemesi:
+Tüm platformlar tek bir PyInstaller tanımıyla derlenir:
+
 ```bash
-./venv/bin/pyinstaller --noconfirm --onedir --windowed \
-  --name "LimeOBS" \
-  --icon "akbim_frontend/app_icon.png" \
-  --add-data "akbim_frontend/style.css:." \
-  --add-data "akbim_frontend/app_icon.png:." \
-  --add-data "akbim_frontend/views:views" \
-  akbim_frontend/main.py
+./venv/bin/pip install pyinstaller
+./venv/bin/pyinstaller --noconfirm --clean limeobs.spec
 ```
 
-### 2. Masaüstü Kısayolu (.desktop)
-Sisteme uygulama başlatıcı olarak eklemek için:
-```bash
-cp akbim_frontend/app_icon.png ~/.local/share/icons/hicolor/256x256/apps/com.kagan.limeobs.png
-cp com.kagan.limeobs.desktop ~/.local/share/applications/
-update-desktop-database ~/.local/share/applications/
-```
-
-### 3. macOS (Apple Silicon M1/M2/M3/M4 & Intel)
-macOS üzerinde LimeOBS'u çalıştırmak için:
-1. Homebrew ile GTK4 ve Libadwaita yükleyin:
-   ```bash
-   brew install python@3.11 gtk4 libadwaita pygobject3 poppler adwaita-icon-theme
-   ```
-2. Tek komutla kurun ve başlatın:
-   ```bash
-   ./setup_mac.sh
-   ```
-* macOS için `Command + K` (⌘K) hızlı komut paleti, AppleScript yerel bildirimleri ve yerel PDF açıcı entegredir.
-* macOS uygulama simgesi: `akbim_frontend/app_icon.icns`
-
-### 4. Windows (10 / 11) — Yerel GTK4 & Libadwaita
-Windows üzerinde yerel GTK4 ve Libadwaita performansı:
-1. **Çalıştırma:**
-   * Masaüstü kısayoluna veya ana dizindeki `LimeOBS_Baslat.bat` başlatıcısına çift tıklayın.
-2. **Özellikler & Yerel Uyumluluk:**
-   * **GTK4 & Libadwaita Yerel Motor:** MSYS2 UCRT64 yerel C çalışma zamanı ile piksel-mükemmel DirectWrite/Cairo çizimi.
-   * **ClearType & Segoe UI:** Windows yerel Segoe UI Variable yazı tipleri ve subpixel ClearType optimizasyonu.
-   * **Adwaita Vektörel İkonlar:** Eksiksiz yerel sembolik ikon seti.
-   * **Win32 Entegrasyonu:** Windows Shell `AppUserModelID` ve yerel pencere simgesi (`app_icon.ico`).
-3. **Detaylı Bilgi:**
-   * Windows mimarisi ve yapılandırma ayrıntıları için `WINDOWS_BILGILERI.md` belgesine göz atabilirsiniz.
+* **Linux AppImage:** `./build_appimage.sh` → `dist_appimage/LimeOBS-x86_64.AppImage`
+* **macOS .app / .dmg** ve **Windows taşınabilir .zip:** GitHub Actions ("Derleme" iş akışı, `v*` etiketiyle).
+* Eski GTK4 sürümü `gtk-legacy` dalında ve `gtk-final` etiketinde saklanır.
 
 ---
 
 ## 🔒 Gizlilik ve Güvenlik
-* **Açık Metin Şifre Saklanmaz:** Kimlik bilgileri Windows üzerinde **DPAPI (`CryptProtectData`)**, Linux üzerinde **GNOME Keyring / Secret Service**, macOS üzerinde **Apple Keychain** ile donanım ve oturuma kilitli olarak saklanır.
-* **HMAC-SHA256 Bütünlük Koruması:** Konfigürasyon kasası kriptografik imza ile kurcalanmaya karşı korunur.
-* **Doğrudan Bağlantı:** LimeOBS hiçbir verinizi üçüncü şahıslara veya harici sunuculara göndermez. Tüm istekler doğrudan okulunuzun resmi OBS sunucusuna şifreli (HTTPS) olarak iletilir.
-* Oturum çerezleri yalnızca yerel cihazınızda (`akbim_session.pkl`) saklanır.
+* **Açık metin şifre saklanmaz:** kimlik bilgileri işletim sisteminin anahtar zincirinde (Linux Secret Service, macOS Keychain, Windows Credential Locker) tutulur.
+* OBS istekleri doğrudan okulunun OBS sunucusuna HTTPS ile gider.
+* **Asistan:** yalnızca asistana soru sorduğunda; soru ve ondan hesaplanan özet (ödev başlıkları, sınav puanları, ders programı) LimeOBS aracı sunucusu (`lime.kaganefe.com`) üzerinden Groq'a gönderilir. Kimlik bilgileri gönderilmez.
+* Resmî tatil listesi `date.nager.at` adresinden alınır (kişisel veri içermez).
+* Oturum çerezleri yalnızca cihazında saklanır.

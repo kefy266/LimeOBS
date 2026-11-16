@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# LimeOBS için tüm platformlarda ortak PyInstaller tanımı.
+# LimeOBS (Qt Quick) için tüm platformlarda ortak PyInstaller tanımı.
 # Kullanım: pyinstaller --noconfirm --clean limeobs.spec
 import sys
 from pathlib import Path
@@ -9,44 +9,45 @@ ROOT = Path(SPECPATH)
 IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform.startswith("win")
 
+# Uygulama dosyaları main.py'nin beklediği düzende paketlenir: <paket>/akbim_frontend, <paket>/limeobs_qt
 datas = [
-    (str(ROOT / "akbim_frontend"), "akbim_frontend"),
     (str(ROOT / "akbim_api.py"), "."),
+    (str(ROOT / "akbim_frontend" / "app_icon.png"), "akbim_frontend"),
+    (str(ROOT / "limeobs_qt" / "icons.json"), "limeobs_qt"),
+    (str(ROOT / "limeobs_qt" / "qml"), "limeobs_qt/qml"),
 ]
+datas += [(str(p), "akbim_frontend") for p in (ROOT / "akbim_frontend").glob("*.py")]
+datas += [(str(p), "limeobs_qt") for p in (ROOT / "limeobs_qt").glob("*.py")]
+
 binaries = []
-hiddenimports = ["gi.repository.Gtk", "gi.repository.Gdk", "gi.repository.Adw", "keyring.backends"]
-for pkg in ("requests", "bs4", "keyring"):
+hiddenimports = [
+    "PySide6.QtQml", "PySide6.QtQuick", "PySide6.QtSvg", "PySide6.QtNetwork",
+    "keyring.backends", "pypdf", "bs4", "requests",
+    # backend ve yardımcı modüller yol eklenerek içe aktarıldığı için açıkça belirtilir
+    "api_bridge", "ai_assistant", "school_calendar", "food_menu", "security", "backend", "schedule_pdf",
+]
+for pkg in ("requests", "bs4", "keyring", "pypdf"):
     d, b, h = collect_all(pkg)
     datas += d; binaries += b; hiddenimports += h
 
 a = Analysis(
-    [str(ROOT / "akbim_frontend" / "main.py")],
-    pathex=[str(ROOT), str(ROOT / "akbim_frontend")],
+    [str(ROOT / "limeobs_qt" / "main.py")],
+    pathex=[str(ROOT), str(ROOT / "akbim_frontend"), str(ROOT / "limeobs_qt")],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    # PyInstaller varsayılan olarak GTK 3 typelib'lerini arar; GTK 4 olduğunu açıkça belirtiyoruz.
-    hooksconfig={
-        "gi": {
-            "module-versions": {"Gtk": "4.0", "Gdk": "4.0", "Gsk": "4.0"},
-            "icons": ["Adwaita", "hicolor"],
-            "themes": ["Adwaita"],
-            "languages": ["tr", "en"],
-        }
-    },
-    excludes=["tkinter", "flask"],
+    excludes=["tkinter", "flask", "gi", "PySide6.QtWebEngineCore", "PySide6.Qt3DCore"],
     noarchive=False,
 )
 pyz = PYZ(a.pure)
 
 if IS_WIN:
     # Windows: onedir taşınabilir klasör (Smart App Control engellerini önlemek için)
-    win_icon = str(ROOT / "akbim_frontend" / "app_icon.ico") if (ROOT / "akbim_frontend" / "app_icon.ico").exists() else str(ROOT / "akbim_frontend" / "app_icon.png")
     exe = EXE(
         pyz, a.scripts, [],
         exclude_binaries=True,
         name="LimeOBS",
-        icon=win_icon,
+        icon=str(ROOT / "akbim_frontend" / "app_icon.ico"),
         console=False,
         upx=False,
     )
@@ -67,5 +68,5 @@ else:
             name="LimeOBS.app",
             icon=str(ROOT / "akbim_frontend" / "app_icon.icns"),
             bundle_identifier="com.kagan.limeobs",
-            info_plist={"NSHighResolutionCapable": True, "CFBundleShortVersionString": "1.0.0"},
+            info_plist={"NSHighResolutionCapable": True, "CFBundleShortVersionString": "1.1.0"},
         )

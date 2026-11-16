@@ -1,5 +1,4 @@
-# GTK4 ve Libadwaita sistem paketleri olarak kurulmalıdır (bkz. README)
-PyGObject>=3.50
+PySide6-Essentials>=6.8
 requests>=2.31
 urllib3<2
 beautifulsoup4>=4.12

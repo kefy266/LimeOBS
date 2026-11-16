@@ -57,7 +57,7 @@ class IconProvider(QQuickImageProvider):
 def main():
     QGuiApplication.setApplicationName("LimeOBS")
     QGuiApplication.setOrganizationName("LimeOBS")
-    QGuiApplication.setDesktopFileName("com.kagan.limeobs.qt")
+    QGuiApplication.setDesktopFileName("com.kagan.limeobs")
     app = QGuiApplication(sys.argv)
     app.setWindowIcon(QIcon(str(BUNDLE_DIR / "akbim_frontend" / "app_icon.png")))
 

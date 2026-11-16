@@ -5,6 +5,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APPDIR="/tmp/LimeOBS.AppDir"
 OUT_DIR="$PROJECT_DIR/dist_appimage"
 ICON_SRC="$PROJECT_DIR/akbim_frontend/app_icon.png"
+IM="$(command -v magick || command -v convert)"
 
 echo "=== 1. Temizlik ve Dizin Yapısı Hazırlığı ==="
 rm -rf "$APPDIR" build dist
@@ -15,14 +16,14 @@ mkdir -p "$OUT_DIR"
 # Standart hicolor ikon boyutlarını oluşturalım
 for size in 16 24 32 48 64 128 256 512; do
     mkdir -p "$APPDIR/usr/share/icons/hicolor/${size}x${size}/apps"
-    convert "$ICON_SRC" -resize "${size}x${size}" "$APPDIR/usr/share/icons/hicolor/${size}x${size}/apps/limeobs.png"
+    "$IM" "$ICON_SRC" -resize "${size}x${size}" "$APPDIR/usr/share/icons/hicolor/${size}x${size}/apps/limeobs.png"
     cp "$APPDIR/usr/share/icons/hicolor/${size}x${size}/apps/limeobs.png" "$APPDIR/usr/share/icons/hicolor/${size}x${size}/apps/com.kagan.limeobs.png"
 done
 
 # Root seviyesi ikonlar (AppImage standardı)
-convert "$ICON_SRC" -resize 256x256 "$APPDIR/limeobs.png"
-convert "$ICON_SRC" -resize 256x256 "$APPDIR/com.kagan.limeobs.png"
-convert "$ICON_SRC" -resize 256x256 "$APPDIR/.DirIcon"
+"$IM" "$ICON_SRC" -resize 256x256 "$APPDIR/limeobs.png"
+"$IM" "$ICON_SRC" -resize 256x256 "$APPDIR/com.kagan.limeobs.png"
+"$IM" "$ICON_SRC" -resize 256x256 "$APPDIR/.DirIcon"
 
 echo "=== 2. PyInstaller ile Binary ve Bağımlılıkların Derlenmesi ==="
 "$PROJECT_DIR/venv/bin/pyinstaller" --noconfirm --clean "$PROJECT_DIR/limeobs.spec"
@@ -36,7 +37,7 @@ cat << 'DESKTOP' > "$APPDIR/limeobs.desktop"
 Type=Application
 Name=LimeOBS
 GenericName=Öğrenci Bilgi Sistemi
-Comment=Modern ve Akıcı Okul Yönetim Paneli
+Comment=Ödevler, sınavlar, ders programı ve yapay zekâ asistanı
 Exec=limeobs-bin
 Icon=limeobs
 Categories=Education;
@@ -53,18 +54,10 @@ HERE="$(dirname "$(readlink -f "${0}")")"
 export PATH="${HERE}/usr/bin:${PATH}"
 export LD_LIBRARY_PATH="${HERE}/usr/lib:${HERE}/usr/bin:${LD_LIBRARY_PATH}"
 export XDG_DATA_DIRS="${HERE}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
-export GSETTINGS_SCHEMA_DIR="${HERE}/usr/share/glib-2.0/schemas:${GSETTINGS_SCHEMA_DIR}"
 
 exec "${HERE}/usr/bin/limeobs-bin" "$@"
 APPRUN
 chmod +x "$APPDIR/AppRun"
-
-# Sistem şemalarını AppDir içerisine ekleyelim
-mkdir -p "$APPDIR/usr/share/glib-2.0/schemas"
-if [ -d /usr/share/glib-2.0/schemas ]; then
-    cp -r /usr/share/glib-2.0/schemas/* "$APPDIR/usr/share/glib-2.0/schemas/" || true
-    glib-compile-schemas "$APPDIR/usr/share/glib-2.0/schemas" || true
-fi
 
 echo "=== 4. AppImage Oluşturma ==="
 ARCH=x86_64 "$PROJECT_DIR/tools/squashfs-root/AppRun" "$APPDIR" "$OUT_DIR/LimeOBS-x86_64.AppImage"

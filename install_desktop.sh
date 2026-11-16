@@ -7,7 +7,6 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APPIMAGE="$PROJECT_DIR/dist_appimage/LimeOBS-x86_64.AppImage"
 ICON_SRC="$PROJECT_DIR/akbim_frontend/app_icon.png"
 APP_ID="com.kagan.limeobs"
-QT_APP_ID="com.kagan.limeobs.qt"
 
 BIN_DIR="$HOME/.local/bin"
 APPS_DIR="$HOME/.local/share/applications"
@@ -20,8 +19,11 @@ refresh_caches() {
     kbuildsycoca6 2>/dev/null || kbuildsycoca5 2>/dev/null || true
 }
 
+# Eski (GTK dönemi) ayrı Qt girdisi ve başlatıcısı
+rm -f "$BIN_DIR/limeobs-qt" "$APPS_DIR/$APP_ID.qt.desktop"
+
 if [ "$1" = "--uninstall" ]; then
-    rm -f "$BIN_DIR/limeobs" "$APPS_DIR/$APP_ID.desktop" "$BIN_DIR/limeobs-qt" "$APPS_DIR/$QT_APP_ID.desktop"
+    rm -f "$BIN_DIR/limeobs" "$APPS_DIR/$APP_ID.desktop"
     for size in $SIZES; do
         rm -f "$ICON_ROOT/${size}x${size}/apps/$APP_ID.png"
     done
@@ -43,8 +45,8 @@ echo "=== Başlatıcı ==="
 mkdir -p "$BIN_DIR" "$APPS_DIR"
 cat << EOF > "$BIN_DIR/limeobs"
 #!/usr/bin/env bash
-if [ -x "$PROJECT_DIR/venv/bin/python" ] && [ -f "$PROJECT_DIR/akbim_frontend/main.py" ]; then
-    exec "$PROJECT_DIR/venv/bin/python" "$PROJECT_DIR/akbim_frontend/main.py" "\$@"
+if [ -x "$PROJECT_DIR/venv/bin/python" ] && [ -f "$PROJECT_DIR/limeobs_qt/main.py" ]; then
+    exec "$PROJECT_DIR/venv/bin/python" "$PROJECT_DIR/limeobs_qt/main.py" "\$@"
 elif [ -x "$APPIMAGE" ]; then
     exec "$APPIMAGE" "\$@"
 fi
@@ -52,12 +54,6 @@ echo "LimeOBS bulunamadı: $PROJECT_DIR" >&2
 exit 1
 EOF
 chmod +x "$BIN_DIR/limeobs"
-
-cat << EOF > "$BIN_DIR/limeobs-qt"
-#!/usr/bin/env bash
-exec "$PROJECT_DIR/venv/bin/python" "$PROJECT_DIR/limeobs_qt/main.py" "\$@"
-EOF
-chmod +x "$BIN_DIR/limeobs-qt"
 
 echo "=== İkonlar (hicolor) ==="
 for size in $SIZES; do
@@ -73,31 +69,14 @@ Version=1.0
 Type=Application
 Name=LimeOBS
 GenericName=Öğrenci Bilgi Sistemi
-Comment=Modern ve Akıcı Okul Yönetim Paneli
+Comment=Ödevler, sınavlar, ders programı ve yapay zekâ asistanı
 Exec=$BIN_DIR/limeobs
 TryExec=$BIN_DIR/limeobs
 Icon=$APP_ID
 Terminal=false
 Categories=Education;
-Keywords=limeobs;obs;akbim;tedem;okul;öğrenci;ders;sınav;
+Keywords=limeobs;obs;akbim;tedem;okul;öğrenci;ders;sınav;ödev;
 StartupWMClass=$APP_ID
-StartupNotify=true
-EOF
-
-cat << EOF > "$APPS_DIR/$QT_APP_ID.desktop"
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=LimeOBS (Qt)
-GenericName=Öğrenci Bilgi Sistemi
-Comment=LimeOBS'un yeni Qt Quick arayüzü
-Exec=$BIN_DIR/limeobs-qt
-TryExec=$BIN_DIR/limeobs-qt
-Icon=$APP_ID
-Terminal=false
-Categories=Education;
-Keywords=limeobs;obs;akbim;tedem;okul;öğrenci;ders;sınav;qt;
-StartupWMClass=$QT_APP_ID
 StartupNotify=true
 EOF
 
