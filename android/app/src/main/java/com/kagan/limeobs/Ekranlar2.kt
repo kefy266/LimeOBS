@@ -70,6 +70,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -504,6 +505,7 @@ private fun CikisSorusu(vazgec: () -> Unit, cikis: () -> Unit) {
 fun DahaEkrani(ac: (Sayfa) -> Unit, cikis: () -> Unit) {
     val ctx = LocalContext.current
     val obs = Obs.al(ctx)
+    val kapsamDaha = rememberCoroutineScope()
     var bildirim by remember { mutableStateOf(obs.bildirimlerAcik) }
     var sor by remember { mutableStateOf(false) }
     var hakkinda by remember { mutableStateOf(false) }
@@ -531,6 +533,13 @@ fun DahaEkrani(ac: (Sayfa) -> Unit, cikis: () -> Unit) {
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
+            Satir(Icons.Outlined.SystemUpdate, "Güncellemeleri denetle", "Sürüm ${surumAdi(ctx)}") {
+                kapsamDaha.launch {
+                    val y = Guncelleme.denetle(ctx, zorla = true)
+                    if (y != null) Guncelleme.bulunan.value = y
+                    else android.widget.Toast.makeText(ctx, "LimeOBS güncel.", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
             Satir(Icons.Outlined.Info, "LimeOBS hakkında", "Sürüm ve yasal bilgi") { hakkinda = true }
             Satir(Icons.AutoMirrored.Outlined.Logout, "Çıkış yap", null) { sor = true }
         }

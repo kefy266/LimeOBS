@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.outlined.PictureAsPdf
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -61,8 +65,36 @@ import java.util.Locale
 fun ProgramEkrani() {
     val obs = Obs.al(LocalContext.current)
     var secili by rememberSaveable { mutableStateOf(etkinOkulGunu().dayOfWeek.value) }
+    val ctx = LocalContext.current
+    val kapsam = rememberCoroutineScope()
+    var pdfHazirlaniyor by remember { mutableStateOf(false) }
+    var pdfHata by remember { mutableStateOf<String?>(null) }
     Yukle(anahtar = "program", yukle = { obs.anaVeri(it).program }) { p ->
         val gunSayisi = maxOf(5, p.hucreler.maxOfOrNull { it.gun } ?: 5).coerceAtMost(7)
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    pdfHata ?: "Haftalık program",
+                    Modifier.weight(1f),
+                    color = if (pdfHata != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                FilledTonalButton(enabled = !pdfHazirlaniyor, onClick = {
+                    pdfHazirlaniyor = true
+                    pdfHata = null
+                    kapsam.launch {
+                        runCatching { ProgramPdf.olustur(ctx) }
+                            .onSuccess { ProgramPdf.paylas(ctx, it) }
+                            .onFailure { pdfHata = it.message ?: "PDF oluşturulamadı." }
+                        pdfHazirlaniyor = false
+                    }
+                }) {
+                    Icon(Icons.Outlined.PictureAsPdf, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (pdfHazirlaniyor) "Hazırlanıyor…" else "PDF olarak paylaş")
+                }
+            }
+        }
         item {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (g in 1..gunSayisi) {

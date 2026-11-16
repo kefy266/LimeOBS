@@ -42,7 +42,7 @@ jobs:
 
       - name: Sürüm bilgisi
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then AD="${GITHUB_REF_NAME#v}"; else AD="1.0.0-dev.${GITHUB_RUN_NUMBER}"; fi
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then AD="${GITHUB_REF_NAME#v}"; else AD="1.1.${GITHUB_RUN_NUMBER}"; fi
           echo "LIMEOBS_VERSION_NAME=$AD" >> "$GITHUB_ENV"
           echo "LIMEOBS_VERSION_CODE=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
 
@@ -64,3 +64,22 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: LimeOBS-Android.apk
+
+      # Uygulama içi otomatik güncelleme: sabit "android" sürümüne APK + surum.json konur.
+      # Yalnızca sabit imza anahtarıyla: farklı anahtarla imzalı APK telefonda güncelleme olarak kurulamaz.
+      - name: Otomatik güncelleme kanalına yayınla
+        if: github.ref == 'refs/heads/android' && env.LIMEOBS_KEYSTORE != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOT="$(git log -1 --format=%s)"
+          jq -n --argjson kod "$LIMEOBS_VERSION_CODE" --arg ad "$LIMEOBS_VERSION_NAME" --arg not "$NOT" \
+            --arg apk "https://github.com/${GITHUB_REPOSITORY}/releases/download/android-guncel/LimeOBS-Android.apk" \
+            '{versionCode: $kod, versionName: $ad, notes: $not, apk: $apk}' > surum.json
+          cat surum.json
+          if ! gh release view android-guncel >/dev/null 2>&1; then
+            gh release create android-guncel --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "LimeOBS Android (otomatik güncelleme)" \
+              --notes "Uygulamanın kendini güncellediği kanal. Elle kurmak için LimeOBS-Android.apk dosyasını indir."
+          fi
+          gh release upload android-guncel LimeOBS-Android.apk surum.json --clobber

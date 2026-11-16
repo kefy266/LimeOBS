@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
                     }
                     AnimatedContent(girisli, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "giris") { acik ->
                         if (acik) {
+                            GuncellemeDenetleyici()
                             AnaIskelet(cikis = {
                                 obs.cikisYap()
                                 BildirimIscisi.iptal(this@MainActivity)
