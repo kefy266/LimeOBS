@@ -39,6 +39,10 @@ a = Analysis(
     excludes=["tkinter", "flask", "gi", "PySide6.QtWebEngineCore", "PySide6.Qt3DCore"],
     noarchive=False,
 )
+if not IS_MAC and not IS_WIN:
+    # Linux: fontconfig/freetype sistemdekiyle kullanılır; paketlenen eski sürüm yeni sistem yapılandırmasını
+    # okuyamayıp uyarı basıyor ve yazı tipi seçimini bozabiliyor.
+    a.binaries = [b for b in a.binaries if not b[0].startswith(("libfontconfig", "libfreetype"))]
 pyz = PYZ(a.pure)
 
 if IS_WIN:

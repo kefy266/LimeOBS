@@ -98,7 +98,8 @@ kbd{font-family:"Geist Mono",monospace;font-size:12px;padding:1px 6px;border:1px
 
 /* install */
 .tabs{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:16px}
-.dl{margin-top:40px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.dl{margin-top:40px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:1100px){.dl{grid-template-columns:repeat(2,1fr)}}
 .dl-card{display:flex;align-items:center;gap:14px;padding:18px 20px;border:1px solid var(--line);border-radius:12px;background:var(--surface);transition:border-color .15s,transform .15s}
 .dl-card:hover{border-color:var(--faint);transform:translateY(-1px)}
 .dl-card svg{width:22px;height:22px;flex:none;fill:currentColor}
@@ -151,7 +152,7 @@ footer p.disc{margin-top:20px;color:var(--faint);max-width:640px;font-size:12px}
 </div></nav>
 
 <header class="wrap hero">
-  <div class="tag"><span class="dot"></span>Açık kaynak&nbsp;·&nbsp;Linux, macOS, Windows</div>
+  <div class="tag"><span class="dot"></span>Açık kaynak&nbsp;·&nbsp;Linux, macOS, Windows, Android</div>
   <h1>Okul hayatın, <em>tek pencerede.</em></h1>
   <p class="lead">Akbim OBS için sade ve hızlı bir masaüstü uygulaması. Ders programı, ödevler, sınavlar ve mesajlar, tarayıcı sekmeleri olmadan.</p>
   <div class="cta">
@@ -231,17 +232,23 @@ footer p.disc{margin-top:20px;color:var(--faint);max-width:640px;font-size:12px}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-2.2 0-3.5 1.8-3.5 4.2 0 1.6-.3 2.6-1.4 4-1.3 1.6-2.6 3.8-2.6 6.1 0 .8.4 1.4 1.1 1.7M12 3c2.2 0 3.5 1.8 3.5 4.2 0 1.6.3 2.6 1.4 4 1.3 1.6 2.6 3.8 2.6 6.1 0 .8-.4 1.4-1.1 1.7M8 20.5c1.2.7 2.5 1 4 1s2.8-.3 4-1"/><circle cx="10.5" cy="7.5" r=".6" fill="currentColor"/><circle cx="13.5" cy="7.5" r=".6" fill="currentColor"/></svg>
       <div><b>Linux</b><span>AppImage · 56 MB</span></div><i>↓</i>
     </a>
+    <a class="dl-card" data-os="android" href="https://github.com/kefy266/LimeOBS/releases/download/android-guncel/LimeOBS-Android.apk" rel="noopener">
+      <svg viewBox="0 0 24 24"><path d="M17.6 9.48l1.84-3.18a.4.4 0 0 0-.69-.4l-1.86 3.22a11.4 11.4 0 0 0-9.78 0L5.25 5.9a.4.4 0 0 0-.69.4l1.84 3.18A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/></svg>
+      <div><b>Android</b><span>APK · 2 MB</span></div><i>↓</i>
+    </a>
   </div>
   <h3 class="h3">Kurulum notları</h3>
   <div class="tabs" role="tablist">
     <button class="on" data-t="linux">Linux</button>
     <button data-t="mac">macOS</button>
     <button data-t="win">Windows</button>
+    <button data-t="android">Android</button>
   </div>
   <div class="code mono">
     <div class="pane on" id="linux"><div class="c"># İndirdiğin AppImage'ı çalıştırılabilir yap ve aç</div><div><span class="p">$ </span>chmod +x LimeOBS-x86_64.AppImage</div><div><span class="p">$ </span>./LimeOBS-x86_64.AppImage</div></div>
     <div class="pane" id="mac"><div class="c"># DMG'yi aç, LimeOBS'u Uygulamalar klasörüne sürükle</div><div class="c"># İmzasız olduğu için açılmazsa: Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç</div><div class="c"># ya da Terminal'de:</div><div><span class="p">$ </span>xattr -cr /Applications/LimeOBS.app</div></div>
     <div class="pane" id="win"><div class="c"># LimeOBS-Windows-Portable.zip'i bir klasöre çıkart ve LimeOBS.exe'yi çalıştır</div><div><span class="p">> </span>LimeOBS.exe</div></div>
+    <div class="pane" id="android"><div class="c"># LimeOBS-Android.apk'yı telefonda indir ve aç</div><div class="c"># "Bilinmeyen uygulamaları yükle" izni sorulursa tarayıcına izin ver, sonra Yükle'ye dokun</div><div class="c"># Play Store dışından kurulduğu için Play Protect uyarı gösterebilir: "Yine de yükle"</div></div>
   </div>
 </section>
 
@@ -255,10 +262,10 @@ footer p.disc{margin-top:20px;color:var(--faint);max-width:640px;font-size:12px}
 
 <script>
 // ziyaretçinin sistemini tahmin edip ilgili kartı ve sekmeyi öne çıkar
-(()=>{const u=navigator.userAgent;const os=/Windows/i.test(u)?'win':/Mac/i.test(u)?'mac':/Linux|X11/i.test(u)?'linux':null;
+(()=>{const u=navigator.userAgent;const os=/Android/i.test(u)?'android':/Windows/i.test(u)?'win':/Mac/i.test(u)?'mac':/Linux|X11/i.test(u)?'linux':null;
 if(!os)return;const c=document.querySelector('.dl-card[data-os="'+os+'"]');c.classList.add('me');
 const h=document.getElementById('hero-dl');h.href=c.getAttribute('href');h.target='_blank';h.rel='noopener';
-h.textContent={win:'Windows için indir',mac:'macOS için indir',linux:'Linux için indir'}[os];
+h.textContent={win:'Windows için indir',mac:'macOS için indir',linux:'Linux için indir',android:'Android için indir'}[os];
 const t=document.querySelector('.tabs button[data-t="'+os+'"]');if(t)setTimeout(()=>t.click());})();
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tabs button,.pane').forEach(x=>x.classList.remove('on'));
