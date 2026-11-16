@@ -74,7 +74,9 @@ Sana her soruda okulun OBS sisteminden alınmış "DOĞRULANMIŞ BİLGİLER" ver
 - Yalnızca bu bilgilere dayan. Bilgilerde olmayan bir ödev, sınav, ders ya da sayı uydurma; bilmiyorsan "OBS'de bu bilgi yok" de.
 - Kısa ve net yaz: birkaç cümle ya da en fazla 6 maddelik liste. Gerektiğinde **kalın** kullanabilirsin.
 - Samimi ve cesaretlendirici ol ama abartma. Çalışma önerilerin somut olsun (hangi ders, ne kadar süre).
-- Ödevin çözümünü yazma; nasıl yaklaşacağını ve neye dikkat edeceğini anlat."""
+- Ödevin çözümünü yazma; nasıl yaklaşacağını ve neye dikkat edeceğini anlat.
+- Tarihleri bilgilerdeki "Bugün" satırına göre yorumla. "Bu hafta" bugünün içinde olduğu haftadır. Bugün okul yoksa (tatil) bunu cevabın başında söyle ve planı tatil günlerine göre yap; okulun açıldığı haftayı "bu hafta" diye anlatma.
+- Biçim: tablo ve iç içe (girintili) liste kullanma. Gerekirse kısa bir başlık (##) ve tek seviyeli "- " listesi kullan, her madde tek satır olsun."""
 
     private fun tarih(t: String): LocalDate? = runCatching {
         val p = t.trim().split(' ')[0]
@@ -110,9 +112,18 @@ Sana her soruda okulun OBS sisteminden alınmış "DOĞRULANMIŞ BİLGİLER" ver
         if (Takvim.okulGunuMu(bugun)) satirlar += "Bugünün dersleri: ${dersler(bugun)}."
         satirlar += "${yaz(sonraki)} dersleri: ${dersler(sonraki)}."
 
+        if (Takvim.okulGunuMu(bugun)) {
+            val pzt = bugun.minusDays((bugun.dayOfWeek.value - 1).toLong())
+            satirlar += "Bu hafta: ${yaz(pzt)} – ${yaz(pzt.plusDays(4))}."
+        } else {
+            satirlar += "Bu hafta okul yok; tatildeki günler ödevler ve tekrar için kullanılabilir. " +
+                "Okulun açıldığı hafta: ${yaz(sonraki)} – ${yaz(sonraki.plusDays((5 - sonraki.dayOfWeek.value).toLong()))}."
+        }
+
         val bekleyen = runCatching { obs.odevler() }.getOrDefault(emptyList())
             .mapNotNull { o -> tarih(o.bitis)?.let { it to o } }
             .filter { (b, o) -> o.durumKod != 1 && !b.isBefore(bugun) }
+            .distinctBy { (b, o) -> Triple(o.baslik, o.ders, b) }
             .sortedBy { it.first }
         satirlar += "Teslim edilmemiş ve süresi geçmemiş ödevler (${bekleyen.size} adet):"
         bekleyen.take(25).forEach { (b, o) ->
