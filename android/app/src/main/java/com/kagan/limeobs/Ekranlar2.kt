@@ -32,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Edit
@@ -508,6 +509,7 @@ fun DahaEkrani(ac: (Sayfa) -> Unit, cikis: () -> Unit) {
     var hakkinda by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Grup {
+            Satir(Icons.Outlined.AutoAwesome, "Asistan", "Ödev, sınav ve tatil soruların") { ac(Sayfa.ASISTAN) }
             Satir(Icons.Outlined.Person, "Profil", "Öğrenci ve veli bilgileri") { ac(Sayfa.PROFIL) }
             Satir(Icons.Outlined.Mail, "Mesajlar", "Öğretmenlerinle yazış") { ac(Sayfa.MESAJLAR) }
             Satir(Icons.Outlined.Restaurant, "Yemek listesi", "Bu ayın menüsü") { ac(Sayfa.YEMEK) }
