@@ -681,13 +681,14 @@ class Backend(QObject):
                 index = self._index()
                 monday = date.today() - timedelta(days=date.today().weekday())
                 week = [self._lessons(index, monday + timedelta(days=i)) for i in range(5)]
-                prof = self._profile or {}
-                student = prof.get("name", "")
-                subtitle = " • ".join(x for x in (prof.get("subtitle", ""), prof.get("term", "")) if x)
+                raw = api_bridge.get_adaptive_profile_data() or {}
+                meta = api_bridge.get_school_metadata() or {}
+                cls = re.sub(r"^[A-ZÇĞİÖŞÜ]+-(?=\d)", "", str(raw.get("student_class") or "").strip())
+                student = tr_title(raw.get("student_name") or "")
                 docs = Path(QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or Path.home())
                 docs.mkdir(parents=True, exist_ok=True)
                 path = docs / "LimeOBS Ders Programı.pdf"
-                schedule_pdf.render(path, week, student, subtitle)
+                schedule_pdf.render(path, week, student, meta.get("school_name") or "", cls, meta.get("academic_term") or "")
                 api_bridge.open_file_external(path)
                 self.toast.emit(f"PDF kaydedildi: {path}")
             except Exception as exc:

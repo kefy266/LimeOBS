@@ -1,9 +1,10 @@
 """Haftalık ders programını yatay A4 PDF olarak çizer (QPdfWriter + QPainter, ek bağımlılık yok)."""
 
 from datetime import date
+from pathlib import Path
 
 from PySide6.QtCore import QMarginsF, QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPageLayout, QPageSize, QPainter, QPdfWriter, QPen
+from PySide6.QtGui import QImage, QColor, QFont, QFontMetricsF, QPageLayout, QPageSize, QPainter, QPdfWriter, QPen
 
 DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma"]
 
@@ -30,7 +31,28 @@ def _time_key(t):
         return 9999
 
 
-def render(path, week, student="", subtitle=""):
+LOGO = Path(__file__).resolve().parent / "qml" / "LimeUI" / "logo.png"
+
+
+def _logo():
+    """Logoyu şeffaf kenarlarından kırpar."""
+    img = QImage(str(LOGO))
+    if img.isNull():
+        return img
+    img = img.convertToFormat(QImage.Format_ARGB32)
+    w, h = img.width(), img.height()
+    xs, ys = [], []
+    for y in range(0, h, 2):
+        for x in range(0, w, 2):
+            if img.pixelColor(x, y).alpha() > 20:
+                xs.append(x)
+                ys.append(y)
+    if not xs:
+        return img
+    return img.copy(min(xs), min(ys), max(xs) - min(xs) + 2, max(ys) - min(ys) + 2)
+
+
+def render(path, week, student="", school="", class_name="", term=""):
     """week: 5 elemanlı liste; her biri [{"time": "08:30-09:10", "lesson": ..., "teacher": ...}]."""
     times = sorted({l["time"] for day in week for l in day if l.get("time")}, key=_time_key)
     if not times:
@@ -56,16 +78,37 @@ def render(path, week, student="", subtitle=""):
         f.setWeight(weight)
         return f
 
-    # --- Başlık
+    # --- Başlık: solda logo + LimeOBS + başlık, sağda okul / sınıf / öğrenci
     x0, y = margin, margin
+    head_h = 16 * mm
+    logo = _logo()
+    text_x = x0
+    if not logo.isNull():
+        lh = head_h
+        lw = lh * logo.width() / logo.height()
+        p.drawImage(QRectF(x0, y, lw, lh), logo)
+        text_x = x0 + lw + 4 * mm
+    p.setPen(_ACCENT)
+    p.setFont(font(10, QFont.Bold))
+    p.drawText(QRectF(text_x, y, W / 2, head_h * 0.38), Qt.AlignLeft | Qt.AlignBottom, "LimeOBS")
     p.setPen(_TEXT)
     p.setFont(font(20, QFont.Bold))
-    p.drawText(QRectF(x0, y, W - 2 * margin, 10 * mm), Qt.AlignLeft | Qt.AlignVCenter, "Ders Programı")
-    p.setFont(font(10))
-    p.setPen(_MUTED)
-    right = " • ".join(x for x in (student, subtitle) if x)
-    p.drawText(QRectF(x0, y, W - 2 * margin, 10 * mm), Qt.AlignRight | Qt.AlignVCenter, right)
-    y += 12 * mm
+    title = "Ders Programı" + (f" — {class_name}" if class_name else "")
+    p.drawText(QRectF(text_x, y + head_h * 0.38, W / 2, head_h * 0.62), Qt.AlignLeft | Qt.AlignTop, title)
+
+    right = QRectF(W / 2, y, W / 2 - margin, head_h)
+    lines = [(school, font(12, QFont.Bold), _TEXT),
+             (" • ".join(x for x in (f"{class_name} sınıfı" if class_name else "", term) if x), font(10, QFont.DemiBold), _ACCENT),
+             (student, font(9.5), _MUTED)]
+    lines = [l for l in lines if l[0]]
+    heights = [QFontMetricsF(f, writer).height() * 1.15 for _, f, _ in lines]
+    ty = y + (head_h - sum(heights)) / 2
+    for (text, f, c), lh in zip(lines, heights):
+        p.setFont(f)
+        p.setPen(c)
+        p.drawText(QRectF(right.left(), ty, right.width(), lh), Qt.AlignRight | Qt.AlignVCenter, text)
+        ty += lh
+    y += head_h + 3 * mm
     p.setPen(QPen(_ACCENT, 0.6 * mm))
     p.drawLine(int(x0), int(y), int(W - margin), int(y))
     y += 5 * mm
@@ -73,20 +116,20 @@ def render(path, week, student="", subtitle=""):
     # --- Tablo
     footer_h = 8 * mm
     time_w = 24 * mm
-    head_h = 9 * mm
+    day_h = 9 * mm
     gap = 1.4 * mm
     col_w = (W - 2 * margin - time_w) / 5
-    row_h = min(22 * mm, (H - y - margin - footer_h - head_h) / len(times))
+    row_h = min(22 * mm, (H - y - margin - footer_h - day_h) / len(times))
 
     p.setFont(font(10.5, QFont.DemiBold))
     for i, name in enumerate(DAY_NAMES):
-        r = QRectF(x0 + time_w + i * col_w + gap / 2, y, col_w - gap, head_h - gap)
+        r = QRectF(x0 + time_w + i * col_w + gap / 2, y, col_w - gap, day_h - gap)
         p.setPen(Qt.NoPen)
         p.setBrush(_ACCENT)
         p.drawRoundedRect(r, 1.6 * mm, 1.6 * mm)
         p.setPen(QColor("white"))
         p.drawText(r, Qt.AlignCenter, name)
-    y += head_h
+    y += day_h
 
     colors = {}
     for k, t in enumerate(times):
