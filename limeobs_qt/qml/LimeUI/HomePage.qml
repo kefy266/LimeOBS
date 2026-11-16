@@ -60,6 +60,34 @@ PageScaffold {
         font.pixelSize: Theme.fontSmall
     }
 
+    // --- Tatil bandı (MEB takvimi + resmî tatiller)
+    Rectangle {
+        visible: page.ready && page.pageData.holiday.length > 0
+        Layout.fillWidth: true
+        implicitHeight: holidayRow.implicitHeight + 28
+        radius: Theme.radius
+        color: Theme.accentSoft
+        border.width: 1
+        border.color: Theme.accent
+        RowLayout {
+            id: holidayRow
+            anchors.fill: parent
+            anchors.margins: 14
+            anchors.leftMargin: 18
+            spacing: 14
+            Text { text: "🏖️"; font.pixelSize: 24 }
+            Text {
+                Layout.fillWidth: true
+                text: page.ready ? page.pageData.holiday : ""
+                wrapMode: Text.WordWrap
+                font.family: Theme.font
+                font.pixelSize: Theme.fontBody
+                font.weight: Font.Medium
+                color: Theme.text
+            }
+        }
+    }
+
     // --- Canlı ders sayacı
     Rectangle {
         visible: page.live !== null
@@ -232,6 +260,23 @@ PageScaffold {
             Layout.topMargin: 6
             text: qsTr("Haftalık programa git →")
             onClicked: page.navigate("schedule")
+        }
+    }
+
+    // --- Yaklaşan tatiller
+    SectionCard {
+        visible: page.ready && page.pageData.upcomingHolidays.length > 0
+        title: qsTr("Yaklaşan tatiller")
+        iconName: "calendar"
+        Repeater {
+            model: page.ready ? page.pageData.upcomingHolidays : []
+            delegate: ListRow {
+                required property var modelData
+                required property int index
+                showDivider: index > 0
+                lead: modelData.date
+                title: modelData.name
+            }
         }
     }
 

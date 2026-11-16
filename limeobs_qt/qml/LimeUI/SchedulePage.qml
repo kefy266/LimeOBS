@@ -5,7 +5,7 @@ PageScaffold {
     id: page
     pageName: "schedule"
     title: qsTr("Ders Programı")
-    subtitle: qsTr("Bu haftanın dersleri")
+    subtitle: ready && pageData.note ? pageData.note : qsTr("Bu haftanın dersleri")
 
     Repeater {
         model: page.ready ? page.pageData.days : []
@@ -13,7 +13,7 @@ PageScaffold {
             id: day
             required property var modelData
             title: modelData.name
-            badge: modelData.isToday ? qsTr("Bugün • %1").arg(modelData.date) : modelData.date
+            badge: (modelData.holiday ? modelData.holiday + " • " : "") + (modelData.isToday ? qsTr("Bugün • %1").arg(modelData.date) : modelData.date)
             iconName: modelData.isToday ? "sparkle" : "calendar"
             border.color: modelData.isToday ? Theme.accent : Theme.border
             Repeater {
@@ -29,7 +29,7 @@ PageScaffold {
             }
             EmptyText {
                 visible: day.modelData.lessons.length === 0
-                text: qsTr("Ders yok.")
+                text: day.modelData.holiday ? qsTr("Okul yok: %1 🏖️").arg(day.modelData.holiday) : qsTr("Ders yok.")
             }
         }
     }

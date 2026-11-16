@@ -1793,7 +1793,7 @@ def fetch_birebir_schedule(lesson_id, teacher_id, program_id="3", week="-1", yea
     return {}
 
 
-def get_effective_school_date(dt=None):
+def _effective_school_date_by_clock(dt=None):
     """
     Kullanıcı Kuralı: Gün saat 16:30'da biter.
     Pazartesi 16:30'dan sonra Salı, Cuma 16:30'dan sonra Pazartesi,
@@ -1820,6 +1820,13 @@ def get_effective_school_date(dt=None):
         return cur_date + timedelta(days=2)  # Pazartesi
     else:  # Pazar (6)
         return cur_date + timedelta(days=1)  # Pazartesi
+
+
+def get_effective_school_date(dt=None):
+    """16:30 kuralına göre etkin gün; ara tatil ve resmî tatil günleri atlanır (bkz. school_calendar)."""
+    import school_calendar
+    d = _effective_school_date_by_clock(dt)
+    return d if school_calendar.is_school_day(d) else school_calendar.next_school_day(d)
 
 
 def get_effective_school_day_idx(dt=None):

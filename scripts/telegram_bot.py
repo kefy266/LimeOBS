@@ -46,9 +46,7 @@ def ensure_login():
 
 
 def school_day(d):
-    while d.weekday() >= 5:
-        d += timedelta(days=1)
-    return d
+    return d if m.school_calendar.is_school_day(d) else m.school_calendar.next_school_day(d)
 
 
 def lessons_sentence(index, day):

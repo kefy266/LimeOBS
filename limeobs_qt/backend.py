@@ -17,6 +17,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 import akbim_api
 import api_bridge
 import ai_assistant
+import school_calendar
 from food_menu import parse_day_date_obj, parse_food_menu
 
 DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
@@ -42,10 +43,7 @@ def fmt_short(d):
 
 
 def next_school_day(d):
-    d += timedelta(days=1)
-    while d.weekday() >= 5:
-        d += timedelta(days=1)
-    return d
+    return school_calendar.next_school_day(d)
 
 
 def greeting(now):
@@ -320,6 +318,8 @@ class Backend(QObject):
 
     @staticmethod
     def _status_text(now):
+        if school_calendar.day_off_reason(now.date()):
+            return "İyi tatiller! 🏖️"
         wd = now.weekday()
         if wd == 0:
             return "Yeni hafta başlıyor!"
@@ -346,14 +346,17 @@ class Backend(QObject):
         else:
             eff_label = DAY_NAMES[eff.weekday()]
 
-        today_lessons = self._lessons(index, today) if today.weekday() < 5 else []
+        today_lessons = self._lessons(index, today) if school_calendar.is_school_day(today) else []
+        off = school_calendar.day_off_reason(today) if today.weekday() < 5 else None
+        brk = school_calendar.school_break(today)
+        upcoming = [e for e in school_calendar.upcoming(today, 60) if e["start"] > today][:3]
         eff_lessons = self._lessons(index, eff)
 
         meals = []
         for week in self._menus():
             for d in week["days"]:
                 if parse_day_date_obj(d["date"], default_year=today.year) == eff:
-                    meals = [tr_title(m) for m in d["meals"] if m.strip().lower() not in ("bardak su", "su")]
+                    meals = list(dict.fromkeys(tr_title(m) for m in d["meals"] if m.strip().lower() not in ("bardak su", "su")))
         main_dish = next((m for m in meals[1:] if "çorba" not in m.lower()), meals[0] if meals else "")
         rest = [m for m in meals if m != main_dish]
 
@@ -389,6 +392,10 @@ class Backend(QObject):
             "scheduleBadge": eff_label,
             "lessons": eff_lessons,
             "exams": list(reversed(exams)),
+            "holiday": (f"Bugün okul yok: {off}" + (f" ({fmt_short(brk[1])} – {fmt_short(brk[2])})" if brk else "")
+                        + f". Okul {fmt_day(eff)} başlıyor.") if off else "",
+            "upcomingHolidays": [{"name": e["name"], "date": fmt_short(e["start"]) +
+                                  (f" – {fmt_short(e['end'])}" if e["end"] != e["start"] else "")} for e in upcoming],
         }
 
     def _load_schedule(self):
@@ -397,12 +404,20 @@ class Backend(QObject):
         monday = today - timedelta(days=today.weekday())
         if today.weekday() >= 5:
             monday += timedelta(days=7)
+        # Haftanın tamamı tatilse (ara tatil, yarıyıl) okulun açılacağı haftayı göster
+        note = ""
+        if not any(school_calendar.is_school_day(monday + timedelta(days=i)) for i in range(5)):
+            reason = school_calendar.day_off_reason(monday) or "Tatil"
+            first = school_calendar.next_school_day(monday)
+            monday = first - timedelta(days=first.weekday())
+            note = f"Bu hafta {reason}; okulun açılacağı haftanın programı gösteriliyor."
         days = []
         for i in range(5):
             d = monday + timedelta(days=i)
+            off = school_calendar.day_off_reason(d)
             days.append({"name": DAY_NAMES[i], "date": fmt_short(d), "isToday": d == today,
-                         "lessons": self._lessons(index, d)})
-        return {"days": days}
+                         "holiday": off or "", "lessons": [] if off else self._lessons(index, d)})
+        return {"days": days, "note": note}
 
     def _load_homework(self):
         items = self._homeworks()
@@ -486,8 +501,9 @@ class Backend(QObject):
             days = []
             for d in w["days"]:
                 dd = parse_day_date_obj(d["date"], default_year=today.year)
+                meals = [tr_title(m) for m in d["meals"] if m.strip().lower() not in ("bardak su", "su")]
                 days.append({"date": d["date"], "isToday": dd == today,
-                             "meals": [tr_title(m) for m in d["meals"] if m.strip().lower() not in ("bardak su", "su")]})
+                             "meals": list(dict.fromkeys(meals))})  # tatil günlerinde "Tatil" 7 kez yazıyor
                 if dd and dd >= today and not current:
                     current = len(weeks)
             weeks.append({"title": f"{w['week_num']}. Hafta", "days": days})

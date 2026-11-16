@@ -36,6 +36,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "akbim_frontend")]
 
 import akbim_api  # noqa: E402
 import api_bridge  # noqa: E402
+import school_calendar  # noqa: E402
 from food_menu import parse_food_menu, parse_day_date_obj  # noqa: E402
 
 TR_TZ = timezone(timedelta(hours=3))  # Türkiye yaz saati uygulamıyor, sabit UTC+3
@@ -212,10 +213,7 @@ H = 'style="margin:0 0 4px;font-size:13px;font-weight:600;color:#2f8a2b"'
 
 
 def next_school_day(today):
-    d = today + timedelta(days=1)
-    while d.weekday() >= 5:
-        d += timedelta(days=1)
-    return d
+    return school_calendar.next_school_day(today)
 
 
 def join_tr(items):
@@ -228,7 +226,8 @@ def join_tr(items):
 def build_digest(today):
     index = (api_bridge.get_adaptive_index_data(force_refresh=True) or {}).get("data") or {}
     lessons = todays_lessons(index, today)
-    menu = [m for m in (todays_menu(today) or []) if m.strip().lower() not in SKIP_MEALS]
+    off = school_calendar.day_off_reason(today)
+    menu = [] if off else [m for m in (todays_menu(today) or []) if tr_lower(m.strip()) not in SKIP_MEALS]
     exams = upcoming_exams(index, today)
     due_day = next_school_day(today)
     hws = [h for h in due_homeworks(api_bridge.fetch_homeworks_list(force_refresh=True), today, days=7)
@@ -244,7 +243,9 @@ def build_digest(today):
 
     due_label = "Yarın" if due_day == today + timedelta(days=1) else DAY_NAMES[due_day.weekday()]
     blocks = []
-    if lesson_names:
+    if off:
+        blocks.append(("🏖️ Tatil", f"Bugün okul yok: {off}. Okul {fmt_date(due_day)} günü başlıyor."))
+    elif lesson_names:
         blocks.append(("📅 Dersler", f"Bugün şu derslerin var: {join_tr(lesson_names)}."))
     else:
         blocks.append(("📅 Dersler", "Bugün ders görünmüyor."))

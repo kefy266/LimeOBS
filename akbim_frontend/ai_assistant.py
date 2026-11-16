@@ -16,6 +16,7 @@ from datetime import date, datetime, timedelta
 import requests
 
 import api_bridge
+import school_calendar
 from food_menu import parse_day_date_obj, parse_food_menu
 
 # Cloudflare Worker yayınlandıktan sonra adresi buraya yazılır (ör. https://limeobs-ai.<hesap>.workers.dev).
@@ -84,10 +85,7 @@ def _fmt(d):
 
 
 def _next_school_day(d):
-    d += timedelta(days=1)
-    while d.weekday() >= 5:
-        d += timedelta(days=1)
-    return d
+    return school_calendar.next_school_day(d)
 
 
 def _lessons_for(index, day):
@@ -173,7 +171,17 @@ def build_facts(force=False):
     index = (api_bridge.get_adaptive_index_data() or {}).get("data") or {}
 
     lines = [f"Bugün: {_fmt(today)}. Bir sonraki okul günü: {_fmt(tomorrow)}."]
-    if today.weekday() < 5:
+    off = school_calendar.day_off_reason(today)
+    if off:
+        brk = school_calendar.school_break(today)
+        span = f" ({_fmt(brk[1])} – {_fmt(brk[2])})" if brk else ""
+        lines.append(f"Bugün okul yok: {off}{span}. Okul {_fmt(tomorrow)} günü başlıyor.")
+    soon = [e for e in school_calendar.upcoming(today, 120) if not (e["start"] <= today <= e["end"])][:6]
+    if soon:
+        lines.append("Yaklaşan tatiller: " + "; ".join(
+            f"{e['name']} {_fmt(e['start'])}" + (f" – {_fmt(e['end'])}" if e["end"] != e["start"] else "")
+            for e in soon) + ".")
+    if school_calendar.is_school_day(today):
         lessons = _lessons_for(index, today)
         lines.append("Bugünün dersleri: " + (", ".join(lessons) if lessons else "yok") + ".")
     lessons = _lessons_for(index, tomorrow)
