@@ -20,3 +20,14 @@ Yayındaki adres: https://lime.kaganefe.com (`akbim_frontend/ai_assistant.py` �
 workers.dev adresi bazı Güvenli İnternet profillerinde engelli olduğu için kendi alan adı kullanılıyor.
 
 Test: `curl https://limeobs-ai.<hesap>.workers.dev/health` → `ok`
+
+## Tanıtım sitesi
+
+Aynı Worker `website/` klasörünü de sunar: https://lime.kaganefe.com → site, `/v1/chat` ve `/health` → asistan.
+Site değişince yeniden yayınla:
+
+```bash
+cd proxy && npx wrangler deploy
+```
+
+`website/.assetsignore` içindekiler (eski `downloads/` klasörü) yüklenmez.

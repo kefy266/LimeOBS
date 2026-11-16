@@ -6,6 +6,11 @@ compatibility_date = "2026-05-01"
 # uygulama bu alan adını kullanır; workers.dev adresi yedek olarak açık kalır.
 routes = [{ pattern = "lime.kaganefe.com", custom_domain = true }]
 
+# Tanıtım sitesi de aynı adresten sunulur: lime.kaganefe.com → website/, /v1/chat ve /health → worker.js
+# (eşleşen bir site dosyası yoksa istek Worker koduna düşer; uygulamaların asistan adresi değişmez)
+[assets]
+directory = "../website"
+
 # Groq anahtarı burada DEĞİL, gizli değişken olarak tutulur:
 #   npx wrangler secret put GROQ_API_KEY
 
