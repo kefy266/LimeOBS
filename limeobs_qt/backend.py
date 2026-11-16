@@ -12,12 +12,13 @@ import threading
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 import akbim_api
 import api_bridge
 import ai_assistant
 import school_calendar
+import telegram_notify
 from food_menu import parse_day_date_obj, parse_food_menu
 
 DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
@@ -84,6 +85,12 @@ class Backend(QObject):
         self._loading = set()
         self._theme_mode = api_bridge.get_saved_theme() if api_bridge.get_saved_theme() in ("system", "light", "dark") else "system"
         self._conversation = ai_assistant.Conversation()
+        # Telegram bildirimleri: uygulama açıkken 15 dakikada bir yeni kayıt kontrolü
+        self._tg_timer = QTimer(self)
+        self._tg_timer.setInterval(telegram_notify.CHECK_INTERVAL_MIN * 60 * 1000)
+        self._tg_timer.timeout.connect(self._telegram_check)
+        self._tg_waiting = False
+        self._tg_checking = False
         self._resultReady.connect(self._on_result)
         self._loginResult.connect(self._on_login_result)
         akbim_api.BASEURL = api_bridge.get_saved_base_url()
@@ -184,9 +191,16 @@ class Backend(QObject):
         self.loggedInChanged.emit()
         self.refresh("profile")
         self.refresh("home")
+        if telegram_notify.get_code():
+            self._tg_timer.start()
+            QTimer.singleShot(60_000, self._telegram_check)
 
     @Slot()
     def logout(self):
+        # Telegram bağlantısı bu hesaba aittir; başka biri giriş yaparsa onun bildirimleri gitmesin
+        self._tg_timer.stop()
+        if telegram_notify.get_code():
+            threading.Thread(target=self._telegram_forget, daemon=True).start()
         api_bridge.clear_active_session(clear_saved_login=True)
         self._conversation.reset()
         self._data.clear()
@@ -194,6 +208,168 @@ class Backend(QObject):
         self._logged_in = False
         self.profileChanged.emit()
         self.loggedInChanged.emit()
+
+    # ------------------------------------------------------------------ Telegram bildirimleri
+
+    def _telegram_command(self):
+        """Uygulama kapalıyken bildirim kontrolü için çalıştırılacak komut."""
+        import os
+        import sys
+        if getattr(sys, "frozen", False):
+            return [os.environ.get("APPIMAGE") or sys.executable, "--bildirim-kontrol"]
+        return [sys.executable, str(Path(__file__).resolve().parent / "main.py"), "--bildirim-kontrol"]
+
+    _UNIT = "limeobs-telefon-bildirim"
+
+    def _systemd_dir(self):
+        import os
+        return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "systemd" / "user"
+
+    def _background_supported(self):
+        import shutil
+        import sys
+        return sys.platform.startswith("linux") and shutil.which("systemctl") is not None
+
+    def _background_enabled(self):
+        return (self._systemd_dir() / f"{self._UNIT}.timer").exists()
+
+    def _set_background(self, on):
+        import subprocess
+        d = self._systemd_dir()
+        timer, service = d / f"{self._UNIT}.timer", d / f"{self._UNIT}.service"
+        if on:
+            d.mkdir(parents=True, exist_ok=True)
+            cmd = " ".join(f'"{c}"' for c in self._telegram_command())
+            service.write_text(
+                "[Unit]\nDescription=LimeOBS telefon bildirimleri (Telegram)\nAfter=network-online.target\n\n"
+                f"[Service]\nType=oneshot\nExecStart={cmd}\n", encoding="utf-8")
+            timer.write_text(
+                "[Unit]\nDescription=LimeOBS telefon bildirimleri (15 dakikada bir)\n\n"
+                f"[Timer]\nOnBootSec=3min\nOnUnitActiveSec={telegram_notify.CHECK_INTERVAL_MIN}min\nPersistent=true\n\n"
+                "[Install]\nWantedBy=timers.target\n", encoding="utf-8")
+            subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+            subprocess.run(["systemctl", "--user", "enable", "--now", f"{self._UNIT}.timer"], check=False)
+        else:
+            subprocess.run(["systemctl", "--user", "disable", "--now", f"{self._UNIT}.timer"], check=False)
+            timer.unlink(missing_ok=True)
+            service.unlink(missing_ok=True)
+            subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+
+    def _load_telegram(self):
+        code = telegram_notify.get_code()
+        bot = telegram_notify.bot_name()
+        linked = bool(code) and telegram_notify.is_linked(code)
+        settings = telegram_notify.load_settings(self._root)
+        return {
+            "available": bool(bot),
+            "bot": bot or "",
+            "linked": linked,
+            "waiting": self._tg_waiting,
+            "kinds": [{"key": k, "label": v, "on": k in (settings.get("kinds") or [])}
+                      for k, v in telegram_notify.LABELS.items()],
+            "backgroundSupported": self._background_supported(),
+            "background": self._background_enabled(),
+            "interval": telegram_notify.CHECK_INTERVAL_MIN,
+        }
+
+    def _telegram_run(self, job, done_message=None):
+        def worker():
+            try:
+                job()
+                if done_message:
+                    self.toast.emit(done_message)
+            except telegram_notify.TelegramError as e:
+                self.toast.emit(str(e))
+            except Exception as e:
+                print(f"[LimeOBS] Telegram: {type(e).__name__}: {e}")
+                self.toast.emit("Telegram işlemi başarısız oldu.")
+            self._resultReady.emit("telegram", self._safe_telegram_state())
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _safe_telegram_state(self):
+        try:
+            return self._load_telegram()
+        except Exception:
+            return {"error": "Telegram durumu alınamadı. Bağlantını kontrol et."}
+
+    @Slot()
+    def telegramConnect(self):
+        if self._tg_waiting:
+            return
+
+        def job():
+            bot = telegram_notify.bot_name()
+            if not bot:
+                raise telegram_notify.TelegramError("Bildirim botu henüz hazır değil.")
+            code = telegram_notify.new_code()
+            self._tg_waiting = True
+            self._resultReady.emit("telegram", self._safe_telegram_state())
+            import webbrowser
+            webbrowser.open(f"https://t.me/{bot}?start={code}")
+            try:
+                if not telegram_notify.wait_for_link(code, cancelled=lambda: not self._tg_waiting):
+                    telegram_notify.clear_code()
+                    raise telegram_notify.TelegramError("Telegram'da Başlat'a basılmadı. Tekrar deneyebilirsin.")
+            finally:
+                self._tg_waiting = False
+            telegram_notify.mark_all_seen(self._root)
+        self._telegram_run(job, "Telegram bağlandı! Yeni ödev ve mesajlar telefonuna gelecek.")
+
+    @Slot()
+    def telegramCancel(self):
+        self._tg_waiting = False
+
+    @Slot()
+    def telegramTest(self):
+        self._telegram_run(lambda: telegram_notify.send(
+            "🔔 <b>Deneme bildirimi</b>\nLimeOBS bildirimleri bu sohbete geliyor. 🍋"), "Deneme bildirimi gönderildi.")
+
+    @Slot()
+    def telegramDisconnect(self):
+        self._tg_timer.stop()
+
+        def job():
+            telegram_notify.unlink()
+            if self._background_enabled():
+                self._set_background(False)
+        self._telegram_run(job, "Telegram bağlantısı kaldırıldı.")
+
+    @Slot(str, bool)
+    def telegramSetKind(self, kind, on):
+        settings = telegram_notify.load_settings(self._root)
+        kinds = set(settings.get("kinds") or [])
+        (kinds.add if on else kinds.discard)(kind)
+        settings["kinds"] = [k for k in telegram_notify.LABELS if k in kinds]
+        telegram_notify.save_settings(self._root, settings)
+
+    @Slot(bool)
+    def telegramSetBackground(self, on):
+        self._telegram_run(lambda: self._set_background(on),
+                           "Uygulama kapalıyken de kontrol edilecek." if on else "Arka plan kontrolü kapatıldı.")
+
+    def _telegram_forget(self):
+        try:
+            telegram_notify.unlink()
+        except Exception:
+            telegram_notify.clear_code()
+        if self._background_enabled():
+            self._set_background(False)
+
+    def _telegram_check(self):
+        if self._tg_checking or not telegram_notify.get_code():
+            return
+        self._tg_checking = True
+
+        def worker():
+            try:
+                n = telegram_notify.check_and_notify(self._root)
+                if n:
+                    print(f"[LimeOBS] Telegram: {n} yeni kayıt bildirildi")
+            except Exception as e:
+                print(f"[LimeOBS] Telegram kontrolü: {type(e).__name__}: {e}")
+            finally:
+                self._tg_checking = False
+        threading.Thread(target=worker, daemon=True).start()
 
     # ------------------------------------------------------------------ veri yükleme
 
@@ -217,6 +393,12 @@ class Backend(QObject):
     def _on_result(self, name, result):
         self._loading.discard(name)
         self.loadingChanged.emit()
+        if name == "telegram" and not (result or {}).get("error"):  # zamanlayıcı ana iş parçacığında
+            linked = bool((result or {}).get("linked"))
+            if linked and not self._tg_timer.isActive():
+                self._tg_timer.start()
+            elif not linked and self._tg_timer.isActive():
+                self._tg_timer.stop()
         if name == "profile":
             if not (result or {}).get("error"):
                 self._profile = result or {}

@@ -54,7 +54,23 @@ class IconProvider(QQuickImageProvider):
         return image
 
 
+def headless_check():
+    """--bildirim-kontrol: arayüz açmadan yeni kayıtları Telegram'a bildirir (systemd zamanlayıcısı çağırır)."""
+    import api_bridge
+    import telegram_notify
+    akbim_api.BASEURL = api_bridge.get_saved_base_url()
+    try:
+        n = telegram_notify.check_and_notify(DATA_DIR)
+        print(f"LimeOBS bildirim kontrolü: {n} yeni kayıt")
+    except telegram_notify.TelegramError as e:
+        print(f"LimeOBS bildirim kontrolü: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main():
+    if "--bildirim-kontrol" in sys.argv:
+        headless_check()
+        return
     QGuiApplication.setApplicationName("LimeOBS")
     QGuiApplication.setOrganizationName("LimeOBS")
     QGuiApplication.setDesktopFileName("com.kagan.limeobs")

@@ -50,3 +50,5 @@ website/downloads/
 
 # Wrangler yerel durum klasörü
 proxy/.wrangler/
+telegram_bildirim.json
+telegram_gorulen.json

@@ -12,9 +12,18 @@ PageScaffold {
     property bool passwordOk: false
     property bool passwordBusy: false
 
+    // Telefon bildirimleri (Telegram) durumu: App.page("telegram")
+    readonly property var tg: tgData
+    property var tgData: null
+    Component.onCompleted: App.refresh("telegram")
+
     Connections {
         target: App
         function onDataChanged(name) {
+            if (name === "telegram") {
+                page.tgData = App.page("telegram")
+                return
+            }
             if (name !== "password")
                 return
             const r = App.page("password")
@@ -108,6 +117,85 @@ PageScaffold {
                 showDivider: index > 0
                 title: modelData.value
                 subtitle: modelData.label
+            }
+        }
+    }
+
+    SectionCard {
+        title: qsTr("Telefon bildirimleri")
+        iconName: "bell"
+        badge: page.tg && page.tg.linked ? qsTr("Telegram bağlı") : ""
+
+        Text {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            font.family: Theme.font
+            font.pixelSize: Theme.fontUi
+            color: Theme.textMuted
+            text: !page.tg ? qsTr("Durum alınıyor…")
+                : page.tg.error ? page.tg.error
+                : page.tg.waiting ? qsTr("Telegram açıldı. Botun sohbetinde <b>Başlat</b>'a bas; bağlantı kendiliğinden tamamlanacak.")
+                : !page.tg.available ? qsTr("Telefon bildirimleri yakında. (Bildirim botu henüz hazır değil.)")
+                : page.tg.linked ? qsTr("Yeni ödev, mesaj, duyuru ve sınav sonuçları Telegram'dan telefonuna gelir. Uygulama açıkken %1 dakikada bir kontrol edilir.").arg(page.tg.interval)
+                : qsTr("Yeni ödev, mesaj ve sınav sonuçlarını telefonuna Telegram'dan al. Bağlanmak için Telegram yüklü olmalı; kişisel bilgi ya da şifre istenmez.")
+            textFormat: Text.StyledText
+        }
+
+        // Bildirim türleri
+        Flow {
+            visible: !!page.tg && page.tg.linked
+            Layout.fillWidth: true
+            Layout.topMargin: 4
+            spacing: 14
+            Repeater {
+                model: page.tg && page.tg.kinds ? page.tg.kinds : []
+                delegate: OCheckBox {
+                    required property var modelData
+                    text: modelData.label
+                    checked: modelData.on
+                    onToggled: App.telegramSetKind(modelData.key, checked)
+                }
+            }
+        }
+
+        OCheckBox {
+            visible: !!page.tg && page.tg.linked && page.tg.backgroundSupported
+            Layout.topMargin: 2
+            text: qsTr("Uygulama kapalıyken de kontrol et")
+            checked: !!page.tg && page.tg.background
+            onToggled: App.telegramSetBackground(checked)
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.topMargin: 6
+            spacing: 8
+            visible: !!page.tg && !page.tg.error && page.tg.available
+            Item { Layout.fillWidth: true }
+            Spinner { visible: !!page.tg && page.tg.waiting }
+            OButton {
+                visible: !!page.tg && page.tg.waiting
+                text: qsTr("Vazgeç")
+                onClicked: App.telegramCancel()
+            }
+            OButton {
+                visible: !!page.tg && page.tg.linked
+                text: qsTr("Bağlantıyı kaldır")
+                variant: "danger"
+                onClicked: App.telegramDisconnect()
+            }
+            OButton {
+                visible: !!page.tg && page.tg.linked
+                text: qsTr("Deneme bildirimi")
+                iconName: "bell"
+                onClicked: App.telegramTest()
+            }
+            OButton {
+                visible: !!page.tg && !page.tg.linked && !page.tg.waiting
+                text: qsTr("Telegram'a bağla")
+                iconName: "external"
+                variant: "primary"
+                onClicked: App.telegramConnect()
             }
         }
     }

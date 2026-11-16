@@ -25,6 +25,7 @@ hiddenimports = [
     "keyring.backends", "pypdf", "bs4", "requests",
     # backend ve yardımcı modüller yol eklenerek içe aktarıldığı için açıkça belirtilir
     "api_bridge", "ai_assistant", "school_calendar", "food_menu", "security", "backend", "schedule_pdf",
+    "telegram_notify",
 ]
 for pkg in ("requests", "bs4", "keyring", "pypdf"):
     d, b, h = collect_all(pkg)
