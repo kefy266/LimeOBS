@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.runtime.key
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -106,8 +108,15 @@ fun MesajlarEkrani() {
     var acik by remember { mutableStateOf<Mesaj?>(null) }
     var taslak by remember { mutableStateOf<Taslak?>(null) }
     var yenile by remember { mutableStateOf(0) }
+    // Tablette liste solda, açık mesaj sağda
+    val genis = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 840
+    val yanitla: (Mesaj) -> Unit = { m ->
+        if (!genis) acik = null
+        taslak = Taslak(Alici(m.kimden, "", m.kullaniciTuru, m.kullaniciId), "Ynt: " + m.baslik.removePrefix("Ynt: "), m.id)
+    }
 
-    Box(Modifier.fillMaxSize()) {
+    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Box(Modifier.weight(1f).fillMaxHeight()) {
         Column {
             PrimaryTabRow(selectedTabIndex = kutu, containerColor = MaterialTheme.colorScheme.background) {
                 Tab(kutu == 0, { kutu = 0 }, text = { Text("Gelen") })
@@ -117,7 +126,11 @@ fun MesajlarEkrani() {
                 val liste = if (kutu == 0) k.gelen else k.giden
                 if (liste.isEmpty()) item { BosDurum("Mesaj yok", if (kutu == 0) "Gelen kutun boş." else "Henüz mesaj göndermedin.") }
                 items(liste, key = { it.id }) { m ->
-                    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer, onClick = { acik = m }, modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (genis && acik?.id == m.id) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                        onClick = { acik = m }, modifier = Modifier.fillMaxWidth(),
+                    ) {
                         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
                             Avatar(m.kimden, null, 44.dp)
                             Spacer(Modifier.width(12.dp))
@@ -148,13 +161,28 @@ fun MesajlarEkrani() {
             modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp).navigationBarsPadding(),
         )
     }
-
-    acik?.let { m ->
-        ModalBottomSheet(onDismissRequest = { acik = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-            MesajOku(m, gelen = kutu == 0) {
-                acik = null
-                taslak = Taslak(Alici(m.kimden, "", m.kullaniciTuru, m.kullaniciId), "Ynt: " + m.baslik.removePrefix("Ynt: "), m.id)
+    if (genis) {
+        Surface(
+            Modifier.weight(1.3f).fillMaxHeight().padding(top = 8.dp, end = 16.dp, bottom = 16.dp),
+            shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow,
+        ) {
+            val m = acik
+            if (m == null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    BosDurum("Bir mesaj seç", "Okumak için soldaki listeden bir mesaja dokun.")
+                }
+            } else key(m.id) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp)) {
+                    MesajOku(m, gelen = kutu == 0) { yanitla(m) }
+                }
             }
+        }
+    }
+    }
+
+    if (!genis) acik?.let { m ->
+        ModalBottomSheet(onDismissRequest = { acik = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            MesajOku(m, gelen = kutu == 0) { yanitla(m) }
         }
     }
     taslak?.let { t ->

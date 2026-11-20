@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -30,6 +31,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -56,6 +59,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.Locale
 
@@ -64,6 +68,7 @@ import java.util.Locale
 @Composable
 fun ProgramEkrani() {
     val obs = Obs.al(LocalContext.current)
+    val genis = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 840
     var secili by rememberSaveable { mutableStateOf(etkinOkulGunu().dayOfWeek.value) }
     val ctx = LocalContext.current
     val kapsam = rememberCoroutineScope()
@@ -98,6 +103,10 @@ fun ProgramEkrani() {
                     Text(if (pdfHazirlaniyor) "Hazırlanıyor…" else "PDF olarak paylaş")
                 }
             }
+        }
+        if (genis) {
+            item { HaftalikTablo(p, gunSayisi, gunTarihi) }
+            return@Yukle
         }
         item {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -154,6 +163,74 @@ fun ProgramEkrani() {
                             )
                         }
                         if (suan) Rozet("ŞU AN", renk = Color.White.copy(alpha = 0.25f), yazi = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Tablet: bütün hafta tek tabloda (satırlar ders saatleri, sütunlar günler). */
+@Composable
+private fun HaftalikTablo(p: DersProgrami, gunSayisi: Int, gunTarihi: (Int) -> LocalDate) {
+    val gunler = (1..gunSayisi).filter { g -> g <= 5 || p.hucreler.any { it.gun == g } }
+    val saatSayisi = maxOf(p.saatler.size, p.hucreler.maxOfOrNull { it.saat } ?: 0)
+    val bugun = LocalDate.now()
+    val ayrac = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Spacer(Modifier.width(64.dp))
+                gunler.forEach { g ->
+                    val t = gunTarihi(g)
+                    val tatil = if (g <= 5) Takvim.okulYokNedeni(t) else null
+                    Column(Modifier.weight(1f).padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            GUN_ADLARI[g - 1], fontWeight = FontWeight.Bold,
+                            color = if (t == bugun) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            tatil ?: "%02d.%02d".format(t.dayOfMonth, t.monthValue), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (tatil != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            for (saat in 1..saatSayisi) {
+                val aralik = p.saatler.getOrNull(saat - 1).orEmpty()
+                Row(Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(Modifier.width(64.dp).padding(top = 6.dp)) {
+                        Text("$saat. ders", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(aralik.substringBefore(" -").trim(), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    gunler.forEach { g ->
+                        val tatil = g <= 5 && Takvim.okulYokNedeni(gunTarihi(g)) != null
+                        val d = p.hucreler.firstOrNull { it.gun == g && it.saat == saat }
+                        val renk = d?.let { Color(it.renk) }
+                        Box(
+                            Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(14.dp))
+                                .background(
+                                    when {
+                                        d == null -> ayrac.copy(alpha = 0.15f)
+                                        tatil -> renk!!.copy(alpha = 0.06f)
+                                        else -> renk!!.copy(alpha = 0.18f)
+                                    }
+                                )
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                        ) {
+                            if (d != null) Column {
+                                Text(
+                                    guzelAd(d.ders), fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (tatil) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface,
+                                )
+                                if (d.ogretmen.isNotBlank()) Text(
+                                    guzelAd(d.ogretmen), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -262,13 +339,46 @@ private fun OdevDetaySayfasi(o: Odev) {
                         Text(detay!!.ogretmenNotu)
                     }
                 }
-                if (detay!!.ekSayisi > 0) {
+                if (detay!!.ekler.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
-                    Text("${detay!!.ekSayisi} ekli dosya var — indirmek için okul OBS sitesini kullan.", style = MaterialTheme.typography.bodySmall)
+                    Text("Ekler", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    detay!!.ekler.forEach { ek -> EkSatiri(o.id, ek) }
                 }
             }
             hata != null -> Text(hata!!, color = MaterialTheme.colorScheme.error)
             else -> CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
+        }
+    }
+}
+
+@Composable
+private fun EkSatiri(odevId: Int, ek: EkDosya) {
+    val ctx = LocalContext.current
+    val obs = Obs.al(ctx)
+    val kapsam = rememberCoroutineScope()
+    var bekliyor by remember { mutableStateOf(false) }
+    fun yap(kaydet: Boolean) {
+        if (bekliyor) return
+        bekliyor = true
+        kapsam.launch {
+            runCatching {
+                val veri = obs.ekIndir(odevId, ek)
+                if (kaydet) Dosyalar.indirilenlereKaydet(ctx, ek.ad, veri) else Dosyalar.ac(ctx, ek.ad, veri)
+            }.onSuccess { mesaj -> mesaj?.let { android.widget.Toast.makeText(ctx, it, android.widget.Toast.LENGTH_SHORT).show() } }
+                .onFailure { android.widget.Toast.makeText(ctx, it.message ?: "Dosya indirilemedi.", android.widget.Toast.LENGTH_SHORT).show() }
+            bekliyor = false
+        }
+    }
+    Surface(
+        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainer,
+        onClick = { yap(false) }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+    ) {
+        Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Dosyalar.ikon(ek.ad), null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(12.dp))
+            Text(ek.ad, Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+            if (bekliyor) CircularProgressIndicator(Modifier.padding(12.dp).size(22.dp), strokeWidth = 2.dp)
+            else IconButton(onClick = { yap(true) }) { Icon(Icons.Outlined.Download, "İndir") }
         }
     }
 }

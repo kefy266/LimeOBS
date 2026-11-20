@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -120,7 +122,11 @@ data class Odev(
     val goruldu: Boolean,
 )
 
-data class OdevDetay(val aciklama: String, val ogretmenNotu: String, val ekSayisi: Int)
+data class EkDosya(val ad: String, val dosyaId: String, val hash: String, val tur: String)
+
+data class OdevDetay(val aciklama: String, val ogretmenNotu: String, val ekler: List<EkDosya>) {
+    val ekSayisi get() = ekler.size
+}
 
 data class Sinav(
     val ad: String,
@@ -177,6 +183,7 @@ data class Bildirim(val id: Long, val baslik: String, val tur: Int, val tarih: S
 
 class Obs private constructor(ctx: Context) {
     private val prefs = ctx.getSharedPreferences("limeobs", Context.MODE_PRIVATE)
+    private val cevrimdisiKlasor = java.io.File(ctx.filesDir, "cevrimdisi")
     private val kasa = Kasa(ctx)
     private val cerez = KaliciCerez(prefs)
     private val girisKilidi = Mutex()
@@ -227,23 +234,85 @@ class Obs private constructor(ctx: Context) {
 
     private fun url(yol: String) = if (yol.startsWith("http")) yol else "$adres/${yol.trimStart('/')}"
 
+    // ---------- Çevrimdışı kullanım ----------
+    // Okuma isteklerinin son başarılı yanıtları telefonda (uygulamanın özel klasöründe) saklanır; internet yokken
+    // bunlar gösterilir. Giriş, mesaj gönderme ve ek indirme gibi istekler hiçbir zaman saklanmaz.
+
+    private val _cevrimdisi = MutableStateFlow<Long?>(null)
+    /** İnternet yoksa gösterilen verilerin kaydedildiği an (ms); çevrimiçiyken null. */
+    val cevrimdisi: StateFlow<Long?> = _cevrimdisi
+
+    private fun saklanabilir(yol: String) = listOf(
+        "login.php", "sendMail", "getReceiverList", "getHomeworkFileToken", "downloadFileByToken",
+    ).none { yol.contains(it) } && (!yol.startsWith("download.php") || yol.contains("&view="))
+
+    /** Yalnızca gerçek veri saklanır: oturumu düşmüş yanıtlar ve giriş sayfası saklanmaz. */
+    private fun kaydedilebilir(metin: String) =
+        if (jsonMu(metin)) !girisGerekli(metin) else metin.contains("window.obsNavData") || metin.contains("<dt")
+
+    private fun kayitDosyasi(anahtar: String): java.io.File {
+        val ozet = java.security.MessageDigest.getInstance("SHA-256").digest("$adres|$anahtar".toByteArray())
+            .joinToString("") { "%02x".format(it) }
+        return java.io.File(cevrimdisiKlasor, ozet)
+    }
+
+    private fun sakla(anahtar: String, veri: ByteArray) {
+        runCatching { cevrimdisiKlasor.mkdirs(); kayitDosyasi(anahtar).writeBytes(veri) }
+    }
+
+    /** Ağ isteğini dener; bağlantı yoksa saklanan son yanıtı döner. */
+    private fun <T> agdanYaDaKayittan(anahtar: String, saklanir: Boolean, ag: () -> T, kayittan: (ByteArray) -> T): T =
+        try {
+            ag().also { _cevrimdisi.value = null }
+        } catch (e: IOException) {
+            val dosya = kayitDosyasi(anahtar)
+            if (!saklanir || !dosya.exists()) throw e
+            _cevrimdisi.value = dosya.lastModified()
+            kayittan(dosya.readBytes())
+        }
+
+    fun cevrimdisiVerileriSil() {
+        cevrimdisiKlasor.deleteRecursively()
+        _cevrimdisi.value = null
+    }
+
     private suspend fun getMetin(yol: String): Pair<Int, String> = withContext(Dispatchers.IO) {
-        http.newCall(Request.Builder().url(url(yol)).build()).execute().use { it.code to (it.body?.string() ?: "") }
+        val saklanir = saklanabilir(yol)
+        agdanYaDaKayittan("GET $yol", saklanir, ag = {
+            http.newCall(Request.Builder().url(url(yol)).build()).execute().use { y ->
+                val metin = y.body?.string() ?: ""
+                if (saklanir && y.isSuccessful && kaydedilebilir(metin)) sakla("GET $yol", metin.toByteArray())
+                y.code to metin
+            }
+        }, kayittan = { 200 to String(it) })
     }
 
     private suspend fun getBayt(yol: String): ByteArray? = withContext(Dispatchers.IO) {
-        http.newCall(Request.Builder().url(url(yol)).build()).execute().use { y ->
-            val tur = y.header("Content-Type") ?: ""
-            if (y.isSuccessful && !tur.contains("text/html")) y.body?.bytes() else null
-        }
+        val saklanir = saklanabilir(yol)
+        agdanYaDaKayittan("BAYT $yol", saklanir, ag = {
+            http.newCall(Request.Builder().url(url(yol)).build()).execute().use { y ->
+                val tur = y.header("Content-Type") ?: ""
+                val veri = if (y.isSuccessful && !tur.contains("text/html")) y.body?.bytes() else null
+                if (saklanir && veri != null && veri.size < 8_000_000) sakla("BAYT $yol", veri)
+                veri
+            }
+        }, kayittan = { it })
     }
 
     private suspend fun post(yol: String, alanlar: Map<String, String>, xhr: Boolean = true): String = withContext(Dispatchers.IO) {
-        val govde = FormBody.Builder().apply { alanlar.forEach { (k, v) -> add(k, v) } }.build()
-        val istek = Request.Builder().url(url(yol)).post(govde).apply {
-            if (xhr) header("X-Requested-With", "XMLHttpRequest")
-        }.build()
-        http.newCall(istek).execute().use { it.body?.string() ?: "" }
+        val saklanir = saklanabilir(yol)
+        val anahtar = "POST $yol " + alanlar.toSortedMap().entries.joinToString("&")
+        agdanYaDaKayittan(anahtar, saklanir, ag = {
+            val govde = FormBody.Builder().apply { alanlar.forEach { (k, v) -> add(k, v) } }.build()
+            val istek = Request.Builder().url(url(yol)).post(govde).apply {
+                if (xhr) header("X-Requested-With", "XMLHttpRequest")
+            }.build()
+            http.newCall(istek).execute().use { y ->
+                val metin = y.body?.string() ?: ""
+                if (saklanir && y.isSuccessful && kaydedilebilir(metin)) sakla(anahtar, metin.toByteArray())
+                metin
+            }
+        }, kayittan = { String(it) })
     }
 
     private fun jsonMu(metin: String) = metin.trimStart().startsWith("{")
@@ -323,6 +392,7 @@ class Obs private constructor(ctx: Context) {
         cerez.temizle()
         kasa.sil()
         onbellegiTemizle()
+        cevrimdisiVerileriSil()
         nav = null
         prefs.edit().remove("goruleBildirimler").apply()
     }
@@ -491,12 +561,27 @@ class Obs private constructor(ctx: Context) {
             val (_, metin) = getMetin("obsapi/homework/getHomeworkDetail?id=$id")
             if (girisGerekli(metin)) return@oturumla null
             val d = JSONObject(metin).optJSONObject("data") ?: return@oturumla null
+            fun ekler(tur: String) = d.optJSONArray(tur)?.let { a ->
+                (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map {
+                    EkDosya(it.optString("fileName").ifBlank { "Dosya" }, it.optString("fileId"), it.optString("fileHash"), tur)
+                }
+            }.orEmpty()
             OdevDetay(
                 aciklama = htmlMetin(d.optString("description")),
                 ogretmenNotu = htmlMetin(d.optString("teacherComment")),
-                ekSayisi = d.optJSONArray("attachFiles")?.length() ?: 0,
+                ekler = ekler("attachFiles") + ekler("answerFiles") + ekler("studentAttachFiles"),
             )
         }
+    }
+
+    /** Ödev ekini indirir: önce download.php (hash), olmazsa dosya anahtarı (token) yöntemi. */
+    suspend fun ekIndir(odevId: Int, ek: EkDosya): ByteArray = oturumla {
+        if (ek.hash.isNotBlank()) getBayt("download.php?file=${ek.hash}")?.takeIf { it.isNotEmpty() }?.let { return@oturumla it }
+        val (_, metin) = getMetin("obsapi/homework/getHomeworkFileToken?homeworkId=$odevId&fileId=${ek.dosyaId}&fileType=${ek.tur}")
+        if (girisGerekli(metin)) return@oturumla null
+        val anahtar = JSONObject(metin).optString("token").ifBlank { throw IOException("Dosya sunucudan indirilemedi.") }
+        getBayt("obsapi/public/downloadFileByToken?f=$anahtar")?.takeIf { it.isNotEmpty() }
+            ?: throw IOException("Dosya sunucudan indirilemedi.")
     }
 
     suspend fun sinavlar(zorla: Boolean = false): SinavOzeti = onbellekli("sinavlar", 300, zorla) {

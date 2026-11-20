@@ -42,6 +42,12 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -72,9 +78,9 @@ enum class Sayfa(val baslik: String) {
 
 /** Tablet ve geniş ekranlarda içeriği ortada okunabilir genişlikte tutar. */
 @Composable
-fun Ortali(modifier: Modifier = Modifier, icerik: @Composable BoxScope.() -> Unit) {
+fun Ortali(modifier: Modifier = Modifier, maks: androidx.compose.ui.unit.Dp = 840.dp, icerik: @Composable BoxScope.() -> Unit) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Box(Modifier.widthIn(max = 840.dp).fillMaxSize(), content = icerik)
+        Box(Modifier.widthIn(max = maks).fillMaxSize(), content = icerik)
     }
 }
 
@@ -93,6 +99,7 @@ fun AnaIskelet(cikis: () -> Unit) {
     val genis = LocalConfiguration.current.screenWidthDp >= 600
 
     CompositionLocalProvider(LocalOturumDustu provides cikis) {
+      Box(Modifier.fillMaxSize()) {
         val ustteki = yigin.lastOrNull()
         AnimatedContent(ustteki, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "sayfa") { sayfa ->
             if (sayfa != null) {
@@ -109,7 +116,7 @@ fun AnaIskelet(cikis: () -> Unit) {
                         )
                     },
                 ) { ic ->
-                    Ortali(Modifier.padding(ic)) {
+                    Ortali(Modifier.padding(ic), if (sayfa == Sayfa.MESAJLAR) 1200.dp else 840.dp) {
                         when (sayfa) {
                             Sayfa.MESAJLAR -> MesajlarEkrani()
                             Sayfa.YEMEK -> YemekEkrani()
@@ -122,45 +129,42 @@ fun AnaIskelet(cikis: () -> Unit) {
                     }
                 }
             } else {
-                Scaffold(
-                    topBar = {
-                        if (sekme != Sekme.ANA) {
-                            TopAppBar(
-                                title = { Text(sekme.ad, fontWeight = FontWeight.Bold) },
-                                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-                            )
-                        }
-                    },
-                    bottomBar = {
-                        if (!genis) NavigationBar {
+                // Geniş ekranda yan menü Scaffold'un dışında: başlık ve içerik aynı eksende ortalanır
+                Row(Modifier.fillMaxSize()) {
+                    if (genis) {
+                        NavigationRail(Modifier.fillMaxHeight()) {
+                            Box(Modifier.weight(1f))
                             Sekme.entries.forEach { s ->
-                                NavigationBarItem(
+                                NavigationRailItem(
                                     selected = sekme == s,
                                     onClick = { sekme = s },
                                     icon = { Icon(if (sekme == s) s.dolu else s.bos, null) },
                                     label = { Text(s.ad) },
+                                    modifier = Modifier.padding(vertical = 4.dp),
                                 )
                             }
+                            Box(Modifier.weight(1f))
                         }
-                    },
-                ) { ic ->
-                    Row(Modifier.fillMaxSize().padding(ic)) {
-                        if (genis) {
-                            NavigationRail(Modifier.fillMaxHeight()) {
-                                Box(Modifier.weight(1f))
+                    }
+                    // Ana sayfa (iki sütun) ve program (haftalık tablo) tablette daha geniş kullanılır
+                    val maks = if (sekme == Sekme.ANA || sekme == Sekme.PROGRAM) 1200.dp else 840.dp
+                    Scaffold(
+                        modifier = Modifier.weight(1f),
+                        topBar = { if (sekme != Sekme.ANA) SayfaBasligi(sekme.ad, maks) },
+                        bottomBar = {
+                            if (!genis) NavigationBar {
                                 Sekme.entries.forEach { s ->
-                                    NavigationRailItem(
+                                    NavigationBarItem(
                                         selected = sekme == s,
                                         onClick = { sekme = s },
                                         icon = { Icon(if (sekme == s) s.dolu else s.bos, null) },
                                         label = { Text(s.ad) },
-                                        modifier = Modifier.padding(vertical = 4.dp),
                                     )
                                 }
-                                Box(Modifier.weight(1f))
                             }
-                        }
-                        Ortali(Modifier.weight(1f)) {
+                        },
+                    ) { ic ->
+                        Ortali(Modifier.padding(ic), maks) {
                             when (sekme) {
                                 Sekme.ANA -> AnaSayfa(ac = ac, sekmeyeGit = { sekme = it })
                                 Sekme.PROGRAM -> ProgramEkrani()
@@ -171,6 +175,50 @@ fun AnaIskelet(cikis: () -> Unit) {
                         }
                     }
                 }
+            }
+        }
+        CevrimdisiBandi(
+            Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                .padding(bottom = if (genis || ustteki != null) 16.dp else 92.dp)
+        )
+      }
+    }
+}
+
+/** Sekme başlığı: içerikle aynı genişlikte ve hizada. */
+@Composable
+private fun SayfaBasligi(ad: String, maks: androidx.compose.ui.unit.Dp) {
+    Box(
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).statusBarsPadding(),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Text(
+            ad, Modifier.widthIn(max = maks).fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+            style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+/** İnternet yokken telefonda saklanan son verilerin gösterildiğini belirtir. */
+@Composable
+private fun CevrimdisiBandi(modifier: Modifier) {
+    val obs = Obs.al(androidx.compose.ui.platform.LocalContext.current)
+    val zaman by obs.cevrimdisi.collectAsState()
+    androidx.compose.animation.AnimatedVisibility(zaman != null, modifier) {
+        val metin = zaman?.let {
+            val t = java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault())
+            val bugun = t.toLocalDate() == java.time.LocalDate.now()
+            "Çevrimdışı · son veriler " + t.format(java.time.format.DateTimeFormatter.ofPattern(if (bugun) "HH:mm" else "d MMM HH:mm", java.util.Locale("tr")))
+        }.orEmpty()
+        androidx.compose.material3.Surface(
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.inverseSurface,
+            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+            shadowElevation = 4.dp,
+        ) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(androidx.compose.material.icons.Icons.Outlined.CloudOff, null, Modifier.padding(end = 8.dp))
+                Text(metin, style = MaterialTheme.typography.labelLarge)
             }
         }
     }

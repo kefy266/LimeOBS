@@ -104,6 +104,7 @@ private data class Bugun(val ana: AnaVeri, val profil: Profil, val odevler: List
 fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
     val ctx = LocalContext.current
     val obs = Obs.al(ctx)
+    val genis = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 840
     var simdi by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -123,12 +124,14 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
             }
         },
     ) { b ->
+        val sol = mutableListOf<@Composable () -> Unit>()
+        val sag = mutableListOf<@Composable () -> Unit>()
         item { Selamlama(b.profil, simdi) }
-        item { TatilBandi(simdi.toLocalDate()) }
-        item { SimdiKarti(b.ana.program, simdi) { sekmeyeGit(Sekme.PROGRAM) } }
-        item { Kisayollar(ac) }
+        (if (genis) sag else sol) += { TatilBandi(simdi.toLocalDate()) }
+        sol += { SimdiKarti(b.ana.program, simdi) { sekmeyeGit(Sekme.PROGRAM) } }
+        (if (genis) sag else sol) += { Kisayollar(ac) }
         val aktif = b.odevler.filter { it.aktif && it.durumKod == 0 }.sortedBy { Obs.tarihSayi(it.bitis) }
-        item {
+        sol += {
             Kart(Modifier.clickable { sekmeyeGit(Sekme.ODEV) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -162,7 +165,7 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
         }
         val yaklasan = b.ana.sinavlar.mapNotNull { s -> kalanGun(s.tarih)?.takeIf { it >= 0 }?.let { s to it } }.sortedBy { it.second }
         if (yaklasan.isNotEmpty()) {
-            item {
+            (if (genis) sag else sol) += {
                 Kart {
                     Text("Yaklaşan sınavlar", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     yaklasan.take(4).forEach { (s, g) ->
@@ -179,7 +182,7 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
             }
         }
         if (b.ana.duyurular.isNotEmpty()) {
-            item {
+            (if (genis) sag else sol) += {
                 Kart(Modifier.clickable { ac(Sayfa.DUYURULAR) }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.Campaign, null, tint = MaterialTheme.colorScheme.primary)
@@ -192,6 +195,12 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
                 }
             }
         }
+        if (genis) item {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1.1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { sol.forEach { it() } }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { sag.forEach { it() } }
+            }
+        } else sol.forEach { k -> item { k() } }
     }
 }
 
