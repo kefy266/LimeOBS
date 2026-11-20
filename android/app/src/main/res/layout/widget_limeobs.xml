@@ -90,4 +90,22 @@
         android:ellipsize="end"
         android:textColor="@color/widget_yazi"
         android:textSize="13sp" />
+    <TextView
+        android:id="@+id/widget_odev3"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="@color/widget_yazi"
+        android:textSize="13sp" />
+    <TextView
+        android:id="@+id/widget_odev4"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="@color/widget_yazi"
+        android:textSize="13sp" />
 </LinearLayout>

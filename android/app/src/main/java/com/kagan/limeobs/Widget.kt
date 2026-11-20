@@ -162,7 +162,7 @@ class LimeWidget : AppWidgetProvider() {
             }
 
             val odevler = Ozet.odevler(ctx)
-            val satirlar = listOf(R.id.widget_odev1, R.id.widget_odev2)
+            val satirlar = listOf(R.id.widget_odev1, R.id.widget_odev2, R.id.widget_odev3, R.id.widget_odev4)
             satirlar.forEachIndexed { i, id ->
                 val o = odevler.getOrNull(i)
                 if (o == null) {
