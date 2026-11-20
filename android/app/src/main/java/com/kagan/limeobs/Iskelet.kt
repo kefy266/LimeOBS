@@ -6,6 +6,15 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -61,6 +70,14 @@ enum class Sayfa(val baslik: String) {
     DUYURULAR("Duyuru ve etkinlikler"),
 }
 
+/** Tablet ve geniş ekranlarda içeriği ortada okunabilir genişlikte tutar. */
+@Composable
+fun Ortali(modifier: Modifier = Modifier, icerik: @Composable BoxScope.() -> Unit) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Box(Modifier.widthIn(max = 840.dp).fillMaxSize(), content = icerik)
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnaIskelet(cikis: () -> Unit) {
@@ -71,6 +88,9 @@ fun AnaIskelet(cikis: () -> Unit) {
     BackHandler(enabled = yigin.isNotEmpty() || sekme != Sekme.ANA) {
         if (yigin.isNotEmpty()) yigin.removeAt(yigin.lastIndex) else sekme = Sekme.ANA
     }
+
+    // 600 dp ve üstü (tablet, yatay telefon): alt çubuk yerine yan menü
+    val genis = LocalConfiguration.current.screenWidthDp >= 600
 
     CompositionLocalProvider(LocalOturumDustu provides cikis) {
         val ustteki = yigin.lastOrNull()
@@ -89,7 +109,7 @@ fun AnaIskelet(cikis: () -> Unit) {
                         )
                     },
                 ) { ic ->
-                    Box(Modifier.fillMaxSize().padding(ic)) {
+                    Ortali(Modifier.padding(ic)) {
                         when (sayfa) {
                             Sayfa.MESAJLAR -> MesajlarEkrani()
                             Sayfa.YEMEK -> YemekEkrani()
@@ -112,7 +132,7 @@ fun AnaIskelet(cikis: () -> Unit) {
                         }
                     },
                     bottomBar = {
-                        NavigationBar {
+                        if (!genis) NavigationBar {
                             Sekme.entries.forEach { s ->
                                 NavigationBarItem(
                                     selected = sekme == s,
@@ -124,13 +144,30 @@ fun AnaIskelet(cikis: () -> Unit) {
                         }
                     },
                 ) { ic ->
-                    Box(Modifier.fillMaxSize().padding(ic)) {
-                        when (sekme) {
-                            Sekme.ANA -> AnaSayfa(ac = ac, sekmeyeGit = { sekme = it })
-                            Sekme.PROGRAM -> ProgramEkrani()
-                            Sekme.ODEV -> OdevlerEkrani()
-                            Sekme.SINAV -> SinavlarEkrani()
-                            Sekme.DAHA -> DahaEkrani(ac = ac, cikis = cikis)
+                    Row(Modifier.fillMaxSize().padding(ic)) {
+                        if (genis) {
+                            NavigationRail(Modifier.fillMaxHeight()) {
+                                Box(Modifier.weight(1f))
+                                Sekme.entries.forEach { s ->
+                                    NavigationRailItem(
+                                        selected = sekme == s,
+                                        onClick = { sekme = s },
+                                        icon = { Icon(if (sekme == s) s.dolu else s.bos, null) },
+                                        label = { Text(s.ad) },
+                                        modifier = Modifier.padding(vertical = 4.dp),
+                                    )
+                                }
+                                Box(Modifier.weight(1f))
+                            }
+                        }
+                        Ortali(Modifier.weight(1f)) {
+                            when (sekme) {
+                                Sekme.ANA -> AnaSayfa(ac = ac, sekmeyeGit = { sekme = it })
+                                Sekme.PROGRAM -> ProgramEkrani()
+                                Sekme.ODEV -> OdevlerEkrani()
+                                Sekme.SINAV -> SinavlarEkrani()
+                                Sekme.DAHA -> DahaEkrani(ac = ac, cikis = cikis)
+                            }
                         }
                     }
                 }

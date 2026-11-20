@@ -132,7 +132,8 @@ fun GirisEkrani(basarili: () -> Unit) {
             .systemBarsPadding()
             .imePadding()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
+            // Tablette form ortada en fazla 480 dp genişlikte kalsın
+            .padding(horizontal = maxOf(24, (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 480) / 2).dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
