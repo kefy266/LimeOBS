@@ -57,17 +57,24 @@ import java.util.Locale
 private val TR = Locale("tr")
 val GUN_ADLARI = listOf("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
 
-/** Okul günü 16:30'da biter; sonrasında ve hafta sonu bir sonraki okul günü gösterilir. */
+/** Okul günü 16:30'da biter; sonrasında, hafta sonu ve tatillerde bir sonraki okul günü gösterilir. */
 fun etkinOkulGunu(simdi: LocalDateTime = LocalDateTime.now()): LocalDate {
     val bitti = simdi.toLocalTime() >= LocalTime.of(16, 30)
     val g = simdi.toLocalDate()
-    return when (simdi.dayOfWeek.value) {
+    val aday = when (simdi.dayOfWeek.value) {
         in 1..4 -> if (bitti) g.plusDays(1) else g
         5 -> if (bitti) g.plusDays(3) else g
         6 -> g.plusDays(2)
         else -> g.plusDays(1)
     }
+    return if (Takvim.okulGunuMu(aday)) aday else Takvim.sonrakiOkulGunu(aday)
 }
+
+private val TARIH = DateTimeFormatter.ofPattern("d MMMM", Locale("tr"))
+
+private fun tatilAraligi(t: Tatil): String =
+    if (t.baslangic == t.bitis) "${t.baslangic.format(TARIH)} ${GUN_ADLARI[t.baslangic.dayOfWeek.value - 1]}"
+    else "${t.baslangic.format(TARIH)} – ${t.bitis.format(TARIH)}"
 
 fun saatAraligi(metin: String): Pair<LocalTime, LocalTime>? {
     val p = Regex("(\\d{1,2}):(\\d{2})").findAll(metin).map { LocalTime.of(it.groupValues[1].toInt(), it.groupValues[2].toInt()) }.toList()
@@ -95,7 +102,8 @@ private data class Bugun(val ana: AnaVeri, val profil: Profil, val odevler: List
 
 @Composable
 fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
-    val obs = Obs.al(LocalContext.current)
+    val ctx = LocalContext.current
+    val obs = Obs.al(ctx)
     var simdi by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -110,11 +118,13 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
                 val a = async { obs.anaVeri(zorla) }
                 val p = async { obs.profil(zorla) }
                 val o = async { runCatching { obs.odevler(zorla) }.getOrDefault(emptyList()) }
+                runCatching { Takvim.hazirla(ctx) }
                 Bugun(a.await(), p.await(), o.await())
             }
         },
     ) { b ->
         item { Selamlama(b.profil, simdi) }
+        item { TatilBandi(simdi.toLocalDate()) }
         item { SimdiKarti(b.ana.program, simdi) { sekmeyeGit(Sekme.PROGRAM) } }
         item { Kisayollar(ac) }
         val aktif = b.odevler.filter { it.aktif && it.durumKod == 0 }.sortedBy { Obs.tarihSayi(it.bitis) }
@@ -180,6 +190,44 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
                     Spacer(Modifier.height(6.dp))
                     Text(b.ana.duyurular.first(), maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
                 }
+            }
+        }
+    }
+}
+
+/** Tatildeyken okulun ne zaman açılacağını, değilse 3 hafta içindeki ilk tatili gösterir. */
+@Composable
+private fun TatilBandi(bugun: LocalDate) {
+    val neden = Takvim.okulYokNedeni(bugun)?.takeIf { bugun.dayOfWeek.value <= 5 }
+    val suanki = Takvim.okulTatili(bugun)
+    val (baslik, alt, simdiMi) = if (neden != null || suanki != null) {
+        val acilis = Takvim.sonrakiOkulGunu(bugun)
+        val kalan = ChronoUnit.DAYS.between(bugun, acilis)
+        Triple(
+            "${suanki?.ad?.replaceFirstChar { it.uppercase() } ?: neden} — iyi tatiller!",
+            "Okul ${acilis.format(TARIH)} ${GUN_ADLARI[acilis.dayOfWeek.value - 1]} açılıyor (${if (kalan == 1L) "yarın" else "$kalan gün sonra"})",
+            true,
+        )
+    } else {
+        val t = Takvim.yaklasan(bugun, 21).firstOrNull {
+            it.baslangic.isAfter(bugun) && (it.okulTatili || it.baslangic.dayOfWeek.value <= 5)
+        } ?: return
+        val kalan = ChronoUnit.DAYS.between(bugun, t.baslangic)
+        Triple(
+            "Yaklaşan tatil: ${t.ad.replaceFirstChar { it.uppercase() }}",
+            "${tatilAraligi(t)} • ${if (kalan == 1L) "yarın" else "$kalan gün sonra"}",
+            false,
+        )
+    }
+    val renk = if (simdiMi) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.tertiaryContainer
+    val yazi = if (simdiMi) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onTertiaryContainer
+    Kart(renk = renk) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(if (simdiMi) "🏖️" else "📅", fontSize = 28.sp)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(baslik, color = yazi, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(alt, color = yazi.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
@@ -255,7 +303,12 @@ private fun SimdiKarti(program: DersProgrami, simdi: LocalDateTime, git: () -> U
         }
         else -> {
             val gunAdi = GUN_ADLARI[gunNo - 1]
-            baslik = if (ChronoUnit.DAYS.between(simdi.toLocalDate(), okulGunu) == 1L) "Yarın ($gunAdi)" else gunAdi
+            val fark = ChronoUnit.DAYS.between(simdi.toLocalDate(), okulGunu)
+            baslik = when {
+                fark == 1L -> "Yarın ($gunAdi)"
+                fark > 3 -> "${okulGunu.format(TARIH)} $gunAdi"
+                else -> gunAdi
+            }
             ana = "${dersler.size} ders seni bekliyor"
             alt = "İlk ders " + guzelAd(dersler.first().ders) + " • " + (program.saatler.getOrNull(dersler.first().saat - 1)?.substringBefore(" -") ?: "")
         }
