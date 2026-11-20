@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ikon_arka">#FF1B1C1F</color>
+    <color name="widget_arka">#F2F8F9F1</color>
+    <color name="widget_yazi">#FF1B1C18</color>
+    <color name="widget_soluk">#FF5D5F55</color>
+    <color name="widget_vurgu">#FF3F8F34</color>
+    <color name="widget_cizgi">#FFDCDDD2</color>
 </resources>

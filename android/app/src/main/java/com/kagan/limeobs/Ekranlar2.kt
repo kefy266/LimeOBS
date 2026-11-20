@@ -43,6 +43,9 @@ import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Mail
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.Widgets
+import android.os.Build
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material3.AlertDialog
@@ -535,6 +538,7 @@ fun DahaEkrani(ac: (Sayfa) -> Unit, cikis: () -> Unit) {
     val obs = Obs.al(ctx)
     val kapsamDaha = rememberCoroutineScope()
     var bildirim by remember { mutableStateOf(obs.bildirimlerAcik) }
+    var hatirlatici by remember { mutableStateOf(DersHatirlatici.acikMi(ctx)) }
     var sor by remember { mutableStateOf(false) }
     var hakkinda by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -561,6 +565,26 @@ fun DahaEkrani(ac: (Sayfa) -> Unit, cikis: () -> Unit) {
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
+            ListItem(
+                headlineContent = { Text("Ders hatırlatıcısı") },
+                supportingContent = { Text("Her dersten 5 dakika önce hangi ders olduğunu bildir") },
+                leadingContent = { Icon(Icons.Outlined.Alarm, null) },
+                trailingContent = {
+                    Switch(hatirlatici, { acik ->
+                        hatirlatici = acik
+                        DersHatirlatici.ayarla(ctx, acik)
+                    })
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
+            Satir(Icons.Outlined.Widgets, "Ana ekrana widget ekle", "Sıradaki ders ve yaklaşan ödevler") {
+                val yonetici = android.appwidget.AppWidgetManager.getInstance(ctx)
+                if (Build.VERSION.SDK_INT >= 26 && yonetici.isRequestPinAppWidgetSupported) {
+                    yonetici.requestPinAppWidget(android.content.ComponentName(ctx, LimeWidget::class.java), null, null)
+                } else {
+                    android.widget.Toast.makeText(ctx, "Ana ekranda boş bir yere basılı tut → Widget'lar → LimeOBS", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
             Satir(Icons.Outlined.SystemUpdate, "Güncellemeleri denetle", "Sürüm ${surumAdi(ctx)}") {
                 kapsamDaha.launch {
                     val y = Guncelleme.denetle(ctx, zorla = true)

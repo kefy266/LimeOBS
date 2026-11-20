@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         BildirimIscisi.kanalOlustur(this)
+        DersHatirlatici.kanalOlustur(this)
         val obs = Obs.al(this)
         setContent {
             LimeTema {

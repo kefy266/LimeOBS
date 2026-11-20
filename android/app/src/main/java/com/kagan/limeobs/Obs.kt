@@ -182,6 +182,7 @@ data class Bildirim(val id: Long, val baslik: String, val tur: Int, val tarih: S
 // ---------- İstemci ----------
 
 class Obs private constructor(ctx: Context) {
+    private val uyg: Context = ctx.applicationContext
     private val prefs = ctx.getSharedPreferences("limeobs", Context.MODE_PRIVATE)
     private val cevrimdisiKlasor = java.io.File(ctx.filesDir, "cevrimdisi")
     private val kasa = Kasa(ctx)
@@ -393,6 +394,8 @@ class Obs private constructor(ctx: Context) {
         kasa.sil()
         onbellegiTemizle()
         cevrimdisiVerileriSil()
+        Ozet.sil(uyg)
+        DersHatirlatici.iptal(uyg)
         nav = null
         prefs.edit().remove("goruleBildirimler").apply()
     }
@@ -406,7 +409,7 @@ class Obs private constructor(ctx: Context) {
             val o = JSONObject(metin)
             if (!o.optBoolean("success")) return@oturumla null
             anaVeriCoz(o.getJSONObject("data"))
-        }
+        }.also { runCatching { Ozet.programKaydet(uyg, it.program) } }
     }
 
     private fun anaVeriCoz(d: JSONObject): AnaVeri {
@@ -553,7 +556,7 @@ class Obs private constructor(ctx: Context) {
                     goruldu = h.optBoolean("seen"),
                 )
             }
-        }
+        }.also { runCatching { Ozet.odevlerKaydet(uyg, it) } }
     }
 
     suspend fun odevDetay(id: Int): OdevDetay = onbellekli("odev$id", 600, false) {
