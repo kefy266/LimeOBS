@@ -17,7 +17,8 @@
 * ✉️ **Mesajlar:** gelen kutusu, okuma, öğretmenlere yazma ve yanıtlama.
 * 🍲 **Yemek listesi**, devamsızlık, etüt/birebir, kütüphane, duyurular, öğretmenler ve profil sayfaları.
 * 🌗 Açık / koyu / sistem teması.
-* 📱 **Android uygulaması** (`android` dalı) ve 🔔 Telegram/e-posta bildirimleri (`scripts/`).
+* 🔔 **Telefon bildirimleri:** yeni ödev, mesaj, duyuru ve sınav sonuçları kendi Telegram botuna gelir (Profil → Telefon bildirimleri; anahtar yalnızca cihazın anahtar zincirinde tutulur).
+* 📱 **Android uygulaması** (`android` dalı).
 
 ---
 
