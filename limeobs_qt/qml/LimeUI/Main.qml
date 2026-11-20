@@ -3,6 +3,8 @@ import QtQuick.Controls.Basic
 import LimeBackend
 
 ApplicationWindow {
+    id: window
+    signal hiddenToTray()
     width: 1180
     height: 780
     minimumWidth: 760
@@ -12,6 +14,17 @@ ApplicationWindow {
     color: Theme.bg
 
     Component.onCompleted: App.tryAutoLogin()
+
+    // Tepsi açıksa kapatma düğmesi pencereyi gizler (uygulama arka planda bildirim göndermeye devam eder)
+    onClosing: close => {
+        if (App.trayAvailable && App.trayEnabled && App.loggedIn) {
+            close.accepted = false
+            window.hide()
+            window.hiddenToTray()
+        } else {
+            Qt.quit()
+        }
+    }
 
     Loader {
         anchors.fill: parent

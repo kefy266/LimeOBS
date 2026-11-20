@@ -7,6 +7,7 @@ basit listelere/sözlüklere çevirir. Ağ işleri iş parçacığında yapılı
 _resultReady sinyaliyle döner.
 """
 import html
+import json
 import re
 import threading
 from datetime import date, datetime, timedelta
@@ -75,6 +76,8 @@ class Backend(QObject):
     loginFailed = Signal(str)
     toast = Signal(str)
     mediaReady = Signal(str, str, bool)  # dosya adresi, ad, yalnızca ses mi
+    desktopNotify = Signal(str, str)     # sistem tepsisi bildirimi: başlık, metin
+    trayEnabledChanged = Signal()
     mailLoaded = Signal("QVariantMap")
     assistantDelta = Signal(str)
     assistantDone = Signal()
@@ -101,6 +104,13 @@ class Backend(QObject):
         self._tg_waiting = False
         self._tg_waiting_bot = ""
         self._tg_checking = False
+        # Sistem tepsisi: pencere kapatılınca arka planda çalışıp yeni kayıtları masaüstüne bildirir
+        self._tray_available = False
+        self._tray_enabled = self._load_desktop_prefs().get("tray", True)
+        self._desk_timer = QTimer(self)
+        self._desk_timer.setInterval(15 * 60 * 1000)
+        self._desk_timer.timeout.connect(self._desktop_check)
+        self._desk_checking = False
         self._resultReady.connect(self._on_result)
         self._loginResult.connect(self._on_login_result)
         akbim_api.BASEURL = api_bridge.get_saved_base_url()
@@ -204,9 +214,16 @@ class Backend(QObject):
         if telegram_notify.is_linked():
             self._tg_timer.start()
             QTimer.singleShot(60_000, self._telegram_check)
+        self._desk_timer.start()
+        QTimer.singleShot(90_000, self._desktop_check)
 
     @Slot()
     def logout(self):
+        self._desk_timer.stop()
+        try:
+            (self._root / "masaustu_gorulen.json").unlink(missing_ok=True)
+        except OSError:
+            pass
         # Telegram bağlantısı bu hesaba aittir; başka biri giriş yaparsa onun bildirimleri gitmesin
         self._tg_timer.stop()
         if telegram_notify.is_linked():
@@ -368,6 +385,57 @@ class Backend(QObject):
                 print(f"[LimeOBS] Telegram kontrolü: {type(e).__name__}: {e}")
             finally:
                 self._tg_checking = False
+        threading.Thread(target=worker, daemon=True).start()
+
+    # ------------------------------------------------------------------ sistem tepsisi ve masaüstü bildirimleri
+
+    def _load_desktop_prefs(self):
+        try:
+            return json.loads((self._root / "masaustu.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+
+    def _get_tray_enabled(self):
+        return self._tray_enabled
+
+    def _set_tray_enabled(self, value):
+        if value != self._tray_enabled:
+            self._tray_enabled = bool(value)
+            prefs = self._load_desktop_prefs()
+            prefs["tray"] = self._tray_enabled
+            (self._root / "masaustu.json").write_text(json.dumps(prefs), encoding="utf-8")
+            self.trayEnabledChanged.emit()
+
+    trayEnabled = Property(bool, _get_tray_enabled, _set_tray_enabled, notify=trayEnabledChanged)
+
+    def set_tray_available(self, available):
+        self._tray_available = available
+
+    @Property(bool, constant=True)
+    def trayAvailable(self):
+        return self._tray_available
+
+    def _desktop_check(self):
+        """Yeni ödev, mesaj, duyuru ve sınav sonuçlarını tepsi bildirimiyle haber verir (yalnızca tepsi açıkken)."""
+        if self._desk_checking or not (self._tray_enabled and self._tray_available and self._logged_in):
+            return
+        self._desk_checking = True
+
+        def worker():
+            try:
+                new, merged, path = telegram_notify.diff_items(self._root, "masaustu_gorulen.json",
+                                                               set(telegram_notify.LABELS))
+                path.write_text(json.dumps(merged), encoding="utf-8")
+                for kind, entries in (new or {}).items():
+                    if not entries:
+                        continue
+                    texts = list(entries.values())
+                    body = "\n".join(texts[:4]) + (f"\n… ve {len(texts) - 4} tane daha" if len(texts) > 4 else "")
+                    self.desktopNotify.emit(telegram_notify.LABELS[kind], body)
+            except Exception as e:
+                print(f"[LimeOBS] Masaüstü bildirim kontrolü: {type(e).__name__}: {e}")
+            finally:
+                self._desk_checking = False
         threading.Thread(target=worker, daemon=True).start()
 
     # ------------------------------------------------------------------ veri yükleme

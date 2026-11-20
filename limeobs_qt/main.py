@@ -4,8 +4,9 @@ import os
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, Qt
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter
+from PySide6.QtCore import QByteArray, QObject, Qt, Slot
+from PySide6.QtGui import QAction, QColor, QGuiApplication, QIcon, QImage, QPainter
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonInstance
 from PySide6.QtQuick import QQuickImageProvider
 from PySide6.QtSvg import QSvgRenderer
@@ -54,6 +55,56 @@ class IconProvider(QQuickImageProvider):
         return image
 
 
+class Tray(QObject):
+    """Sistem tepsisi simgesi: pencereyi açar, çıkış verir ve yeni kayıt bildirimlerini gösterir."""
+
+    def __init__(self, app, icon, backend):
+        super().__init__()
+        self.app = app
+        self.window = None
+        self.hidden_once = False
+        self.icon = QSystemTrayIcon(icon)
+        self.icon.setToolTip("LimeOBS")
+        menu = QMenu()
+        show = QAction("LimeOBS'u aç", menu)
+        show.triggered.connect(self.show_window)
+        quit_ = QAction("Çıkış", menu)
+        quit_.triggered.connect(app.quit)
+        menu.addAction(show)
+        menu.addSeparator()
+        menu.addAction(quit_)
+        self.menu = menu
+        self.icon.setContextMenu(menu)
+        self.icon.activated.connect(self._activated)
+        self.icon.messageClicked.connect(self.show_window)
+        backend.desktopNotify.connect(self.notify)
+        backend.trayEnabledChanged.connect(lambda: self.icon.setVisible(backend.trayEnabled))
+        self.icon.setVisible(backend.trayEnabled)
+
+    def _activated(self, reason):
+        if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):
+            self.show_window()
+
+    @Slot()
+    def show_window(self):
+        if self.window is not None:
+            self.window.show()
+            self.window.raise_()
+            self.window.requestActivate()
+
+    @Slot(str, str)
+    def notify(self, title, body):
+        self.icon.showMessage(title, body, self.icon.icon(), 10_000)
+
+    @Slot()
+    def window_hidden(self):
+        if not self.hidden_once:
+            self.hidden_once = True
+            self.icon.showMessage("LimeOBS arka planda çalışıyor",
+                                  "Yeni ödev ve mesajları buradan bildireceğim. Kapatmak için tepsi simgesinden Çıkış'ı seç.",
+                                  self.icon.icon(), 6000)
+
+
 def headless_check():
     """--bildirim-kontrol: arayüz açmadan yeni kayıtları Telegram'a bildirir (systemd zamanlayıcısı çağırır)."""
     import api_bridge
@@ -74,10 +125,17 @@ def main():
     QGuiApplication.setApplicationName("LimeOBS")
     QGuiApplication.setOrganizationName("LimeOBS")
     QGuiApplication.setDesktopFileName("com.kagan.limeobs")
-    app = QGuiApplication(sys.argv)
-    app.setWindowIcon(QIcon(str(BUNDLE_DIR / "akbim_frontend" / "app_icon.png")))
+    app = QApplication(sys.argv)  # QSystemTrayIcon için QApplication (Qt Widgets) gerekir
+    icon = QIcon(str(BUNDLE_DIR / "akbim_frontend" / "app_icon.png"))
+    app.setWindowIcon(icon)
+    # Pencere kapanınca Main.qml karar verir: tepsiye gizle ya da Qt.quit()
+    app.setQuitOnLastWindowClosed(False)
 
     backend = Backend(DATA_DIR)
+    tray = None
+    if QSystemTrayIcon.isSystemTrayAvailable():
+        backend.set_tray_available(True)
+        tray = Tray(app, icon, backend)
     qmlRegisterSingletonInstance(Backend, "LimeBackend", 1, 0, "App", backend)
 
     engine = QQmlApplicationEngine()
@@ -86,6 +144,9 @@ def main():
     engine.loadFromModule("LimeUI", "Main")
     if not engine.rootObjects():
         sys.exit(1)
+    if tray is not None:
+        tray.window = engine.rootObjects()[0]
+        tray.window.hiddenToTray.connect(tray.window_hidden)
     sys.exit(app.exec())
 
 

@@ -21,7 +21,7 @@ datas += [(str(p), "limeobs_qt") for p in (ROOT / "limeobs_qt").glob("*.py")]
 
 binaries = []
 hiddenimports = [
-    "PySide6.QtQml", "PySide6.QtQuick", "PySide6.QtSvg", "PySide6.QtNetwork", "PySide6.QtMultimedia",
+    "PySide6.QtQml", "PySide6.QtQuick", "PySide6.QtSvg", "PySide6.QtNetwork", "PySide6.QtMultimedia", "PySide6.QtWidgets",
     "keyring.backends", "pypdf", "bs4", "requests",
     # backend ve yardımcı modüller yol eklenerek içe aktarıldığı için açıkça belirtilir
     "api_bridge", "ai_assistant", "school_calendar", "food_menu", "security", "backend", "schedule_pdf",
@@ -73,5 +73,5 @@ else:
             name="LimeOBS.app",
             icon=str(ROOT / "akbim_frontend" / "app_icon.icns"),
             bundle_identifier="com.kagan.limeobs",
-            info_plist={"NSHighResolutionCapable": True, "CFBundleShortVersionString": "1.1.1"},
+            info_plist={"NSHighResolutionCapable": True, "CFBundleShortVersionString": "1.1.2"},
         )

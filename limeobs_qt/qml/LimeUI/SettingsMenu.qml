@@ -29,6 +29,16 @@ Popup {
             value: App.themeMode
             onPicked: v => App.themeMode = v
         }
+        OCheckBox {
+            visible: App.trayAvailable
+            Layout.fillWidth: true
+            text: qsTr("Kapatınca arka planda çalış")
+            checked: App.trayEnabled
+            onToggled: App.trayEnabled = checked
+            ToolTip.visible: hovered
+            ToolTip.delay: 500
+            ToolTip.text: qsTr("Pencere kapatılınca LimeOBS sistem tepsisinde kalır ve yeni ödev, mesaj ve sınav sonuçlarını bildirir.")
+        }
         OButton {
             Layout.fillWidth: true
             text: qsTr("Çıkış yap")

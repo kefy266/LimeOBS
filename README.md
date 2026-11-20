@@ -12,13 +12,14 @@
 * 🤖 **Yapay zekâ asistanı:** ödev, sınav ve program sorularını OBS verilerine dayanarak cevaplar (Groq, uygulama içinde anahtar gerekmez).
 * 🏖️ **Okul takvimi:** MEB ara tatilleri, yarıyıl ve resmî tatiller; tatil haftasında okulun açılacağı haftanın programı gösterilir.
 * 📅 **Ders programı:** haftalık program ve logolu, okul/sınıf adlı **PDF çıktısı**.
-* 📚 **Ödevler:** teslim durumları, öğretmen notları ve ek dosyalar.
+* 📚 **Ödevler:** teslim durumları, öğretmen notları ve ek dosyalar; ses ve videolar uygulama içinde oynatılır.
 * 📊 **Sınavlar:** deneme ve yazılı sonuçları, ders bazlı karne, seçilen sınavların ortalaması.
 * ✉️ **Mesajlar:** gelen kutusu, okuma, öğretmenlere yazma ve yanıtlama.
 * 🍲 **Yemek listesi**, devamsızlık, etüt/birebir, kütüphane, duyurular, öğretmenler ve profil sayfaları.
+* 🖥️ **Sistem tepsisi:** pencere kapatılınca arka planda çalışır, yeni kayıtları masaüstü bildirimiyle haber verir.
 * 🌗 Açık / koyu / sistem teması.
 * 🔔 **Telefon bildirimleri:** yeni ödev, mesaj, duyuru ve sınav sonuçları kendi Telegram botuna gelir (Profil → Telefon bildirimleri; anahtar yalnızca cihazın anahtar zincirinde tutulur).
-* 📱 **Android uygulaması** (`android` dalı).
+* 📱 **Android uygulaması** (`android` dalı): ana ekran widget'ı, ders hatırlatıcısı, çevrimdışı kullanım, tablet düzeni.
 
 ---
 

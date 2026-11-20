@@ -194,6 +194,22 @@ def format_message(new):
     return "\n\n".join(parts)
 
 
+def diff_items(data_dir, state_name, kinds):
+    """Kayıtlı durumla karşılaştırır. Döner: (yeni kayıtlar ya da ilk çalıştırmada None, kaydedilecek durum, dosya)."""
+    path = Path(data_dir) / state_name
+    try:
+        seen = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        seen = None
+    current = collect_items()
+    merged = {k: sorted(set((seen or {}).get(k, [])) | set(v)) for k, v in current.items()}
+    if seen is None:
+        return None, merged, path
+    new = {k: {i: t for i, t in v.items() if i not in set(seen.get(k, []))}
+           for k, v in current.items() if k in kinds}
+    return new, merged, path
+
+
 def check_and_notify(data_dir):
     """Yeni kayıtları bulur ve Telegram'a gönderir. Döner: gönderilen kayıt sayısı (ilk çalıştırmada 0)."""
     if not is_linked():
@@ -201,20 +217,10 @@ def check_and_notify(data_dir):
     if not api_bridge.ensure_valid_session():
         raise TelegramError("OBS oturumu açılamadı.")
     kinds = set(load_settings(data_dir).get("kinds") or LABELS)
-    path = _state_path(data_dir)
-    try:
-        seen = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        seen = None
-    current = collect_items()
-    merged = {k: sorted(set((seen or {}).get(k, [])) | set(v)) for k, v in current.items()}
-    sent = 0
-    if seen is not None:
-        new = {k: {i: t for i, t in v.items() if i not in set(seen.get(k, []))}
-               for k, v in current.items() if k in kinds}
-        sent = sum(len(v) for v in new.values())
-        if sent:
-            send(format_message(new))  # hata olursa durum kaydedilmez, bir sonraki kontrolde tekrar denenir
+    new, merged, path = diff_items(data_dir, "telegram_gorulen.json", kinds)
+    sent = sum(len(v) for v in (new or {}).values())
+    if sent:
+        send(format_message(new))  # hata olursa durum kaydedilmez, bir sonraki kontrolde tekrar denenir
     path.write_text(json.dumps(merged), encoding="utf-8")
     return sent
 
