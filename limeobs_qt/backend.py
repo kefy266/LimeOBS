@@ -12,7 +12,7 @@ import threading
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
 
 import akbim_api
 import api_bridge
@@ -20,6 +20,14 @@ import ai_assistant
 import school_calendar
 import telegram_notify
 from food_menu import parse_day_date_obj, parse_food_menu
+
+try:  # QtMultimedia (PySide6-Addons) yoksa ses/video dosyaları harici programda açılır
+    from PySide6 import QtMultimedia  # noqa: F401
+    MEDIA_OK = True
+except ImportError:
+    MEDIA_OK = False
+AUDIO_EXT = {".mp3", ".m4a", ".aac", ".wav", ".ogg", ".oga", ".opus", ".flac", ".wma"}
+VIDEO_EXT = {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".wmv", ".3gp", ".mpeg", ".mpg"}
 
 DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
 MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos",
@@ -66,6 +74,7 @@ class Backend(QObject):
 
     loginFailed = Signal(str)
     toast = Signal(str)
+    mediaReady = Signal(str, str, bool)  # dosya adresi, ad, yalnızca ses mi
     mailLoaded = Signal("QVariantMap")
     assistantDelta = Signal(str)
     assistantDone = Signal()
@@ -840,7 +849,11 @@ class Backend(QObject):
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / re.sub(r"[^\w.\- ]", "_", name)
         path.write_bytes(content)
-        api_bridge.open_file_external(path)
+        ext = path.suffix.lower()
+        if MEDIA_OK and ext in AUDIO_EXT | VIDEO_EXT:
+            self.mediaReady.emit(QUrl.fromLocalFile(str(path)).toString(), name, ext in AUDIO_EXT)
+        else:
+            api_bridge.open_file_external(path)
 
     @Slot()
     def exportSchedulePdf(self):

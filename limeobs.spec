@@ -21,7 +21,7 @@ datas += [(str(p), "limeobs_qt") for p in (ROOT / "limeobs_qt").glob("*.py")]
 
 binaries = []
 hiddenimports = [
-    "PySide6.QtQml", "PySide6.QtQuick", "PySide6.QtSvg", "PySide6.QtNetwork",
+    "PySide6.QtQml", "PySide6.QtQuick", "PySide6.QtSvg", "PySide6.QtNetwork", "PySide6.QtMultimedia",
     "keyring.backends", "pypdf", "bs4", "requests",
     # backend ve yardımcı modüller yol eklenerek içe aktarıldığı için açıkça belirtilir
     "api_bridge", "ai_assistant", "school_calendar", "food_menu", "security", "backend", "schedule_pdf",

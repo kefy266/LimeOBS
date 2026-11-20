@@ -39,3 +39,4 @@ OButton 1.0 OButton.qml
 OCheckBox 1.0 OCheckBox.qml
 Segmented 1.0 Segmented.qml
 Spinner 1.0 Spinner.qml
+MediaViewer 1.0 MediaViewer.qml

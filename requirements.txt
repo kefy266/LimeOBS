@@ -1,4 +1,5 @@
 PySide6-Essentials>=6.8
+PySide6-Addons>=6.8  # yalnızca QtMultimedia (ödev eklerindeki ses/video oynatıcı)
 requests>=2.31
 urllib3<2
 beautifulsoup4>=4.12
