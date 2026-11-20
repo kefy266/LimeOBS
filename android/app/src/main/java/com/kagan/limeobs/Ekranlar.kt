@@ -71,10 +71,14 @@ fun ProgramEkrani() {
     var pdfHata by remember { mutableStateOf<String?>(null) }
     Yukle(anahtar = "program", yukle = { obs.anaVeri(it).program }) { p ->
         val gunSayisi = maxOf(5, p.hucreler.maxOfOrNull { it.gun } ?: 5).coerceAtMost(7)
+        // Gösterilen hafta: tatil/hafta sonunda okulun açılacağı hafta (OBS'nin tarihleri içinde bulunulan haftayı gösterir)
+        val pazartesi = etkinOkulGunu().with(java.time.DayOfWeek.MONDAY)
+        val gunTarihi = { g: Int -> pazartesi.plusDays((g - 1).toLong()) }
+        val ayFormat = java.time.format.DateTimeFormatter.ofPattern("d MMMM", Locale("tr"))
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    pdfHata ?: "Haftalık program",
+                    pdfHata ?: "${gunTarihi(1).format(ayFormat)} haftası",
                     Modifier.weight(1f),
                     color = if (pdfHata != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
@@ -98,18 +102,27 @@ fun ProgramEkrani() {
         item {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (g in 1..gunSayisi) {
-                    val tarih = p.gunler.getOrNull(g - 1)?.second.orEmpty()
+                    val tarih = gunTarihi(g)
+                    val tatil = g <= 5 && Takvim.okulYokNedeni(tarih) != null
                     FilterChip(
                         selected = secili == g, onClick = { secili = g },
-                        label = { Text(GUN_ADLARI[g - 1].take(3) + if (tarih.length >= 5) " " + tarih.take(5) else "") },
+                        label = {
+                            Text(
+                                GUN_ADLARI[g - 1].take(3) + " " + "%02d.%02d".format(tarih.dayOfMonth, tarih.monthValue),
+                                textDecoration = if (tatil) androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
+                            )
+                        },
                     )
                 }
             }
         }
-        val dersler = p.hucreler.filter { it.gun == secili }.sortedBy { it.saat }
-        if (dersler.isEmpty()) item { BosDurum("Ders yok", "${GUN_ADLARI[secili - 1]} için programda ders görünmüyor.") }
+        val seciliTarih = gunTarihi(secili)
+        val tatilNedeni = Takvim.okulYokNedeni(seciliTarih)?.takeIf { secili <= 5 }
+        val dersler = if (tatilNedeni != null) emptyList() else p.hucreler.filter { it.gun == secili }.sortedBy { it.saat }
+        if (tatilNedeni != null) item { BosDurum("Okul yok", "${seciliTarih.format(ayFormat)} ${GUN_ADLARI[secili - 1]}: $tatilNedeni") }
+        else if (dersler.isEmpty()) item { BosDurum("Ders yok", "${GUN_ADLARI[secili - 1]} için programda ders görünmüyor.") }
         val simdi = LocalDateTime.now()
-        val bugun = simdi.dayOfWeek.value == secili
+        val bugun = simdi.toLocalDate() == seciliTarih
         items(dersler) { d ->
             val araligi = p.saatler.getOrNull(d.saat - 1).orEmpty()
             val ss = saatAraligi(araligi)
