@@ -108,7 +108,7 @@ fun ProgramEkrani() {
                         selected = secili == g, onClick = { secili = g },
                         label = {
                             Text(
-                                GUN_ADLARI[g - 1].take(3) + " " + "%02d.%02d".format(tarih.dayOfMonth, tarih.monthValue),
+                                listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")[g - 1] + " " + "%02d.%02d".format(tarih.dayOfMonth, tarih.monthValue),
                                 textDecoration = if (tatil) androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
                             )
                         },
