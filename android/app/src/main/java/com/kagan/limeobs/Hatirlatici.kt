@@ -49,8 +49,13 @@ object DersHatirlatici {
         val (gun, d) = Ozet.sonrakiDers(ctx, simdi.plusMinutes(ONCE_DK)) ?: return iptal(ctx)
         val zaman = gun.atTime(d.baslangic).minusMinutes(ONCE_DK).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val alarm = ctx.getSystemService(AlarmManager::class.java)
-        // Kesin alarm izni gerektirmeyen, uyku modunda da çalışan alarm (birkaç dakika gecikebilir)
-        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, zaman, niyet(ctx, d))
+        // Tam zamanında çalan alarm (USE_EXACT_ALARM); izin yoksa en fazla 3 dakika gecikebilen pencere
+        val pi = niyet(ctx, d)
+        if (Build.VERSION.SDK_INT < 31 || alarm.canScheduleExactAlarms()) {
+            alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, zaman, pi)
+        } else {
+            alarm.setWindow(AlarmManager.RTC_WAKEUP, zaman, 3 * 60_000L, pi)
+        }
     }
 
     fun iptal(ctx: Context) {
