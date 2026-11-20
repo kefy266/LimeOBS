@@ -460,7 +460,7 @@ private fun Ozet(baslik: String, deger: String, modifier: Modifier, degisim: Dou
 }
 
 @Composable
-private fun PuanGrafigi(puanlar: List<Float>) {
+fun PuanGrafigi(puanlar: List<Float>) {
     val ana = MaterialTheme.colorScheme.primary
     val izgara = MaterialTheme.colorScheme.outlineVariant
     Canvas(Modifier.fillMaxWidth().height(140.dp)) {

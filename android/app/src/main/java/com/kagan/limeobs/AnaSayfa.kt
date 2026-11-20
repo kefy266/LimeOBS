@@ -98,7 +98,7 @@ fun kalanMetni(gun: Long): String = when {
     else -> "$gun gün"
 }
 
-private data class Bugun(val ana: AnaVeri, val profil: Profil, val odevler: List<Odev>)
+private data class Bugun(val ana: AnaVeri, val profil: Profil, val odevler: List<Odev>, val sinav: SinavOzeti?)
 
 @Composable
 fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
@@ -119,8 +119,10 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
                 val a = async { obs.anaVeri(zorla) }
                 val p = async { obs.profil(zorla) }
                 val o = async { runCatching { obs.odevler(zorla) }.getOrDefault(emptyList()) }
+                // Sınav özeti yalnızca tablette (sağ sütunda) gösterilir
+                val s = async { if (genis) runCatching { obs.sinavlar(zorla) }.getOrNull() else null }
                 runCatching { Takvim.hazirla(ctx) }
-                Bugun(a.await(), p.await(), o.await())
+                Bugun(a.await(), p.await(), o.await(), s.await())
             }
         },
     ) { b ->
@@ -143,7 +145,7 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
                     }
                     Text("${aktif.size}", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
                 }
-                aktif.take(3).forEach { o ->
+                aktif.take(if (genis) 6 else 3).forEach { o ->
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(10.dp).clip(CircleShape).background(dersRengi(o.ders)))
@@ -195,12 +197,89 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
                 }
             }
         }
+        if (genis) {
+            b.sinav?.takeIf { it.sinavlar.isNotEmpty() }?.let { oz -> sag += { SinavKarti(oz) { sekmeyeGit(Sekme.SINAV) } } }
+            sag += { TatillerKarti(simdi.toLocalDate()) }
+        }
         if (genis) item {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1.1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { sol.forEach { it() } }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { sag.forEach { it() } }
             }
         } else sol.forEach { k -> item { k() } }
+    }
+}
+
+/** Tablet: son deneme puanı, ortalama, gidişat ve gelişmesi gereken dersler. */
+@Composable
+private fun SinavKarti(oz: SinavOzeti, git: () -> Unit) {
+    Kart(Modifier.clickable(onClick = git)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Sınavlar", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Icon(Icons.Outlined.ChevronRight, null)
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            Column {
+                Text("Son puan", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(oz.sonPuan?.let { "%.1f".format(it) } ?: "-", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                oz.degisim?.let {
+                    Text(
+                        (if (it >= 0) "▲ +" else "▼ ") + "%.1f".format(it), style = MaterialTheme.typography.labelMedium,
+                        color = if (it >= 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            Column {
+                Text("Ortalama", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(oz.ortalama?.let { "%.1f".format(it) } ?: "-", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            }
+        }
+        val denemeler = oz.sinavlar.filter { it.kategori == "Deneme" }.sortedBy { Obs.tarihSayi(it.tarih) }
+        if (denemeler.size >= 2) {
+            Spacer(Modifier.height(12.dp))
+            PuanGrafigi(denemeler.map { it.puan.toFloat() })
+        }
+        val zayif = oz.dersler.sortedBy { it.oran }.take(3)
+        if (zayif.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text("Çalışman gereken dersler", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            zayif.forEach { d ->
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(d.ders, Modifier.width(110.dp), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                    LinearProgressIndicator(
+                        progress = { (d.oran / 100).toFloat().coerceIn(0f, 1f) },
+                        modifier = Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(50)),
+                        color = if (d.oran < 70) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        strokeCap = StrokeCap.Round,
+                    )
+                    Text("%${d.oran.toInt()}", Modifier.padding(start = 10.dp).width(40.dp), style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
+    }
+}
+
+/** Tablet: önümüzdeki tatiller ve resmî günler. */
+@Composable
+private fun TatillerKarti(bugun: LocalDate) {
+    val liste = Takvim.yaklasan(bugun, 150).filter { it.baslangic.isAfter(bugun) }.take(4)
+    if (liste.isEmpty()) return
+    Kart {
+        Text("Yaklaşan tatiller", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        liste.forEach { t ->
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(if (t.okulTatili) "🏖️" else "🎉", fontSize = 20.sp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(t.ad.replaceFirstChar { it.uppercase() }, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(tatilAraligi(t), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Rozet(kalanMetni(ChronoUnit.DAYS.between(bugun, t.baslangic)))
+            }
+        }
     }
 }
 
