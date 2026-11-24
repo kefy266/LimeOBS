@@ -31,6 +31,13 @@ ApplicationWindow {
         sourceComponent: App.loggedIn ? shell : login
     }
 
+    UpdateBanner {
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 20
+        z: 50
+    }
+
     Toast { id: toast }
     // Oynatıcı yalnızca gerektiğinde yüklenir (QtMultimedia yoksa backend dosyayı harici açar)
     Loader { id: media; active: false; source: "MediaViewer.qml" }

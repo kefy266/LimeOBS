@@ -40,3 +40,4 @@ OCheckBox 1.0 OCheckBox.qml
 Segmented 1.0 Segmented.qml
 Spinner 1.0 Spinner.qml
 MediaViewer 1.0 MediaViewer.qml
+UpdateBanner 1.0 UpdateBanner.qml

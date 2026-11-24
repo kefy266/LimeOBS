@@ -6,6 +6,9 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_all
 
 ROOT = Path(SPECPATH)
+VERSION = {}
+exec((ROOT / "limeobs_qt" / "version.py").read_text(encoding="utf-8"), VERSION)
+VERSION = VERSION["VERSION"]
 IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform.startswith("win")
 
@@ -25,6 +28,7 @@ hiddenimports = [
     "keyring.backends", "pypdf", "bs4", "requests",
     # backend ve yardımcı modüller yol eklenerek içe aktarıldığı için açıkça belirtilir
     "api_bridge", "ai_assistant", "school_calendar", "food_menu", "security", "backend", "schedule_pdf",
+    "updater", "version",
     "telegram_notify",
 ]
 for pkg in ("requests", "bs4", "keyring", "pypdf"):
@@ -73,5 +77,5 @@ else:
             name="LimeOBS.app",
             icon=str(ROOT / "akbim_frontend" / "app_icon.icns"),
             bundle_identifier="com.kagan.limeobs",
-            info_plist={"NSHighResolutionCapable": True, "CFBundleShortVersionString": "1.1.3"},
+            info_plist={"NSHighResolutionCapable": True, "CFBundleShortVersionString": VERSION},
         )

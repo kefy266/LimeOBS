@@ -20,6 +20,8 @@ import api_bridge
 import ai_assistant
 import school_calendar
 import telegram_notify
+import updater
+from version import VERSION
 from food_menu import parse_day_date_obj, parse_food_menu
 
 try:  # QtMultimedia (PySide6-Addons) yoksa ses/video dosyaları harici programda açılır
@@ -78,6 +80,11 @@ class Backend(QObject):
     mediaReady = Signal(str, str, bool)  # dosya adresi, ad, yalnızca ses mi
     desktopNotify = Signal(str, str)     # sistem tepsisi bildirimi: başlık, metin
     trayEnabledChanged = Signal()
+    updateChanged = Signal()
+    _updateFound = Signal("QVariant", bool)
+    _updateProgress = Signal(float)
+    _updateFailed = Signal(str)
+    _quitRequested = Signal()
     mailLoaded = Signal("QVariantMap")
     assistantDelta = Signal(str)
     assistantDone = Signal()
@@ -111,6 +118,20 @@ class Backend(QObject):
         self._desk_timer.setInterval(15 * 60 * 1000)
         self._desk_timer.timeout.connect(self._desktop_check)
         self._desk_checking = False
+        # Otomatik güncelleme: açılıştan kısa süre sonra ve 6 saatte bir denetlenir
+        self._update_info = {}
+        self._update_state = ""       # "", "indiriliyor", "kuruluyor"
+        self._update_progress = 0.0
+        self._update_checking = False
+        self._updateFound.connect(self._on_update_found)
+        self._updateProgress.connect(self._on_update_progress)
+        self._updateFailed.connect(self._on_update_failed)
+        self._quitRequested.connect(self._quit_app)
+        self._upd_timer = QTimer(self)
+        self._upd_timer.setInterval(6 * 3600 * 1000)
+        self._upd_timer.timeout.connect(lambda: self.checkUpdates(False))
+        self._upd_timer.start()
+        QTimer.singleShot(15_000, lambda: self.checkUpdates(False))
         self._resultReady.connect(self._on_result)
         self._loginResult.connect(self._on_login_result)
         akbim_api.BASEURL = api_bridge.get_saved_base_url()
@@ -386,6 +407,94 @@ class Backend(QObject):
             finally:
                 self._tg_checking = False
         threading.Thread(target=worker, daemon=True).start()
+
+    # ------------------------------------------------------------------ otomatik güncelleme
+
+    @Property(str, constant=True)
+    def appVersion(self):
+        return VERSION
+
+    @Property("QVariantMap", notify=updateChanged)
+    def updateInfo(self):
+        return self._update_info
+
+    @Property(str, notify=updateChanged)
+    def updateState(self):
+        return self._update_state
+
+    @Property(float, notify=updateChanged)
+    def updateProgress(self):
+        return self._update_progress
+
+    @Property(bool, constant=True)
+    def updateSupported(self):
+        return updater.mode() is not None
+
+    @Slot(bool)
+    def checkUpdates(self, manual):
+        if self._update_checking or self._update_state:
+            return
+        self._update_checking = True
+
+        def worker():
+            try:
+                self._updateFound.emit(updater.check() or {}, manual)
+            except Exception as e:
+                print(f"[LimeOBS] Güncelleme denetimi: {type(e).__name__}: {e}")
+                if manual:
+                    self._updateFailed.emit("Güncelleme denetlenemedi. İnternet bağlantını kontrol et.")
+            finally:
+                self._update_checking = False
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_update_found(self, info, manual):
+        self._update_info = info or {}
+        self.updateChanged.emit()
+        if manual and not info:
+            self.toast.emit(f"LimeOBS güncel (sürüm {VERSION}).")
+        if info and self._tray_available and self._tray_enabled:
+            self.desktopNotify.emit("LimeOBS güncellemesi hazır", f"Sürüm {info['version']} — uygulamadan güncelleyebilirsin.")
+
+    def _on_update_progress(self, value):
+        self._update_progress = value
+        self.updateChanged.emit()
+
+    def _on_update_failed(self, message):
+        self._update_state = ""
+        self.updateChanged.emit()
+        self.toast.emit(message)
+
+    @Slot()
+    def dismissUpdate(self):
+        self._update_info = {}
+        self.updateChanged.emit()
+
+    @Slot()
+    def installUpdate(self):
+        info = self._update_info
+        if not info or self._update_state:
+            return
+        if updater.mode() == "kaynak":
+            updater.restart_source()
+            self._quit_app()
+            return
+        self._update_state = "indiriliyor"
+        self._update_progress = 0.0
+        self.updateChanged.emit()
+
+        def worker():
+            try:
+                path = updater.download(info, lambda d, t: self._updateProgress.emit(d / t if t else 0.0))
+                updater.install_and_restart(path)
+                self._quitRequested.emit()
+            except Exception as e:
+                print(f"[LimeOBS] Güncelleme: {type(e).__name__}: {e}")
+                self._updateFailed.emit("Güncelleme indirilemedi ya da kurulamadı. Siteden elle indirebilirsin.")
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _quit_app(self):
+        from PySide6.QtCore import QCoreApplication
+        QCoreApplication.quit()
 
     # ------------------------------------------------------------------ sistem tepsisi ve masaüstü bildirimleri
 

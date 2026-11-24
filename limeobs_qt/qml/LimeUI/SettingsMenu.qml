@@ -40,6 +40,13 @@ Popup {
             ToolTip.text: qsTr("Pencere kapatılınca LimeOBS sistem tepsisinde kalır ve yeni ödev, mesaj ve sınav sonuçlarını bildirir.")
         }
         OButton {
+            visible: App.updateSupported
+            Layout.fillWidth: true
+            text: qsTr("Güncellemeleri denetle (%1)").arg(App.appVersion)
+            iconName: "refresh"
+            onClicked: { root.close(); App.checkUpdates(true) }
+        }
+        OButton {
             Layout.fillWidth: true
             text: qsTr("Çıkış yap")
             iconName: "logout"
