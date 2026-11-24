@@ -194,6 +194,24 @@ class Backend(QObject):
             self._loginResult.emit(ok, "")
         threading.Thread(target=worker, daemon=True).start()
 
+    schoolUrlChanged = Signal()
+
+    def _get_school_url(self):
+        return akbim_api.BASEURL.replace("https://", "").replace("http://", "")
+
+    schoolUrl = Property(str, _get_school_url, notify=schoolUrlChanged)
+
+    @Slot(str)
+    def setSchoolUrl(self, url):
+        """Akbim OBS kullanan başka bir okulun adresi (ör. okuladiobs.com)."""
+        url = (url or "").strip()
+        if not url or " " in url or "." not in url:
+            self.loginFailed.emit("Geçerli bir okul OBS adresi gir (ör. okuladiobs.com).")
+            return
+        api_bridge.clear_active_session(clear_saved_login=False)
+        api_bridge.set_base_url(url)
+        self.schoolUrlChanged.emit()
+
     @Slot(str, str, bool)
     def login(self, tc, password, remember):
         tc, password = tc.strip(), password.strip()
