@@ -68,6 +68,7 @@ enum class Sekme(val ad: String, val dolu: ImageVector, val bos: ImageVector) {
 /** "Daha" menüsünden ve kısayollardan açılan alt sayfalar */
 enum class Sayfa(val baslik: String) {
     ASISTAN("Asistan"),
+    SORU("Soru çözücü"),
     MESAJLAR("Mesajlar"),
     YEMEK("Yemek listesi"),
     DEVAMSIZLIK("Devamsızlık"),
@@ -124,6 +125,7 @@ fun AnaIskelet(cikis: () -> Unit) {
                             Sayfa.OGRETMENLER -> OgretmenlerEkrani()
                             Sayfa.PROFIL -> ProfilEkrani(cikis)
                             Sayfa.ASISTAN -> AsistanEkrani()
+                            Sayfa.SORU -> SoruCozucuEkrani()
                             Sayfa.DUYURULAR -> DuyurularEkrani()
                         }
                     }

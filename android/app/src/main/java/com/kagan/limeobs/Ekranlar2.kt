@@ -44,6 +44,8 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Mail
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Widgets
 import android.os.Build
 import androidx.compose.material.icons.outlined.Person
@@ -572,11 +574,30 @@ fun DahaEkrani(ac: (Sayfa) -> Unit, cikis: () -> Unit) {
     val kapsamDaha = rememberCoroutineScope()
     var bildirim by remember { mutableStateOf(obs.bildirimlerAcik) }
     var hatirlatici by remember { mutableStateOf(DersHatirlatici.acikMi(ctx)) }
+    var aktariliyor by remember { mutableStateOf(false) }
+    val takvimIzni = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { sonuc ->
+        if (sonuc.values.all { it }) {
+            aktariliyor = true
+            kapsamDaha.launch {
+                val mesaj = runCatching { TakvimeAktar.hepsiniAktar(ctx) }.fold(
+                    { n -> if (n == 0) "Takvim zaten güncel." else "$n sınav ve ödev takvimine eklendi." },
+                    { it.message ?: "Takvime eklenemedi." },
+                )
+                aktariliyor = false
+                android.widget.Toast.makeText(ctx, mesaj, android.widget.Toast.LENGTH_LONG).show()
+            }
+        } else {
+            android.widget.Toast.makeText(ctx, "Takvim izni verilmedi.", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
     var sor by remember { mutableStateOf(false) }
     var hakkinda by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Grup {
             Satir(Icons.Outlined.AutoAwesome, "Asistan", "Ödev, sınav ve tatil soruların") { ac(Sayfa.ASISTAN) }
+            Satir(Icons.Outlined.School, "Soru çözücü", "Fotoğrafını çek, adım adım çözsün") { ac(Sayfa.SORU) }
             Satir(Icons.Outlined.Person, "Profil", "Öğrenci ve veli bilgileri") { ac(Sayfa.PROFIL) }
             Satir(Icons.Outlined.Mail, "Mesajlar", "Öğretmenlerinle yazış") { ac(Sayfa.MESAJLAR) }
             Satir(Icons.Outlined.Restaurant, "Yemek listesi", "Bu ayın menüsü") { ac(Sayfa.YEMEK) }
@@ -610,6 +631,9 @@ fun DahaEkrani(ac: (Sayfa) -> Unit, cikis: () -> Unit) {
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
+            Satir(Icons.Outlined.CalendarMonth, "Sınav ve ödevleri takvime ekle", if (aktariliyor) "Ekleniyor…" else "Teslim ve sınav günleri telefonun takviminde görünsün") {
+                if (!aktariliyor) takvimIzni.launch(arrayOf(android.Manifest.permission.READ_CALENDAR, android.Manifest.permission.WRITE_CALENDAR))
+            }
             Satir(Icons.Outlined.Widgets, "Ana ekrana widget ekle", "Sıradaki ders ve yaklaşan ödevler") {
                 val yonetici = android.appwidget.AppWidgetManager.getInstance(ctx)
                 if (Build.VERSION.SDK_INT >= 26 && yonetici.isRequestPinAppWidgetSupported) {

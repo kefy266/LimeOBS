@@ -33,6 +33,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -336,6 +337,14 @@ private fun OdevDetaySayfasi(o: Odev) {
         BilgiSatiri("Veriliş", o.baslangic)
         BilgiSatiri("Son teslim", o.bitis + (kalanGun(o.bitis)?.let { "  (${kalanMetni(it)})" } ?: ""))
         BilgiSatiri("Durum", o.durum + if (o.puan.isNotBlank() && o.puan != "-") " • Puan ${o.puan}" else "")
+        val ctxOdev = LocalContext.current
+        tarihCoz(o.bitis)?.let { t ->
+            androidx.compose.material3.TextButton(onClick = {
+                TakvimeAktar.tekEkle(ctxOdev, "📚 ${guzelAd(o.ders)}: ${o.baslik}", t, "Ödev teslimi • ${guzelAd(o.ogretmen)}")
+            }) {
+                Icon(Icons.Outlined.CalendarMonth, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Teslim gününü takvime ekle")
+            }
+        }
         Spacer(Modifier.height(12.dp))
         when {
             detay != null -> {

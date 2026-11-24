@@ -42,7 +42,7 @@ jobs:
 
       - name: Sürüm bilgisi
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then AD="${GITHUB_REF_NAME#v}"; else AD="1.1.${GITHUB_RUN_NUMBER}"; fi
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then AD="${GITHUB_REF_NAME#v}"; else AD="1.2.$((GITHUB_RUN_NUMBER - 21))"; fi  # 1.2.0 = 21. derleme
           echo "LIMEOBS_VERSION_NAME=$AD" >> "$GITHUB_ENV"
           echo "LIMEOBS_VERSION_CODE=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
 

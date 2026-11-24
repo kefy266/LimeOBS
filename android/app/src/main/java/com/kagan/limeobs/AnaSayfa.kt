@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -98,7 +99,7 @@ fun kalanMetni(gun: Long): String = when {
     else -> "$gun gün"
 }
 
-private data class Bugun(val ana: AnaVeri, val profil: Profil, val odevler: List<Odev>, val sinav: SinavOzeti?, val yemek: List<YemekListesi.Gun>)
+private data class Bugun(val ana: AnaVeri, val profil: Profil, val odevler: List<Odev>, val sinav: SinavOzeti?, val yemek: List<YemekListesi.Gun>, val okunmamis: Int)
 
 @Composable
 fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
@@ -122,8 +123,9 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
                 // Sınav özeti yalnızca tablette (sağ sütunda) gösterilir
                 val s = async { if (genis) runCatching { obs.sinavlar(zorla) }.getOrNull() else null }
                 val y = async { runCatching { YemekListesi.coz(ctx, obs.yemekPdf(zorla)) }.getOrDefault(emptyList()) }
+                val m = async { runCatching { obs.mesajlar(zorla).okunmamis }.getOrDefault(0) }
                 runCatching { Takvim.hazirla(ctx) }
-                Bugun(a.await(), p.await(), o.await(), s.await(), y.await())
+                Bugun(a.await(), p.await(), o.await(), s.await(), y.await(), m.await())
             }
         },
     ) { b ->
@@ -132,7 +134,7 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
         item { Selamlama(b.profil, simdi) }
         (if (genis) sag else sol) += { TatilBandi(simdi.toLocalDate()) }
         sol += { SimdiKarti(b.ana.program, simdi) { sekmeyeGit(Sekme.PROGRAM) } }
-        (if (genis) sag else sol) += { Kisayollar(ac) }
+        (if (genis) sag else sol) += { Kisayollar(ac, b.okunmamis) }
         val yemekGunu = etkinOkulGunu(simdi)
         YemekListesi.gunun(b.yemek, yemekGunu)?.let { g ->
             (if (genis) sag else sol) += { YemekKarti(g, yemekGunu == simdi.toLocalDate()) { ac(Sayfa.YEMEK) } }
@@ -458,9 +460,9 @@ private fun SimdiKarti(program: DersProgrami, simdi: LocalDateTime, git: () -> U
 }
 
 @Composable
-private fun Kisayollar(ac: (Sayfa) -> Unit) {
+private fun Kisayollar(ac: (Sayfa) -> Unit, okunmamis: Int = 0) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        Kisayol(Icons.Outlined.Mail, "Mesajlar", Modifier.weight(1f)) { ac(Sayfa.MESAJLAR) }
+        Kisayol(Icons.Outlined.Mail, "Mesajlar", Modifier.weight(1f), okunmamis) { ac(Sayfa.MESAJLAR) }
         Kisayol(Icons.Outlined.Restaurant, "Yemek", Modifier.weight(1f)) { ac(Sayfa.YEMEK) }
         Kisayol(Icons.Outlined.EventBusy, "Devamsızlık", Modifier.weight(1f)) { ac(Sayfa.DEVAMSIZLIK) }
         Kisayol(Icons.Outlined.Groups, "Öğretmenler", Modifier.weight(1f)) { ac(Sayfa.OGRETMENLER) }
@@ -468,11 +470,21 @@ private fun Kisayollar(ac: (Sayfa) -> Unit) {
 }
 
 @Composable
-private fun Kisayol(ikon: ImageVector, ad: String, modifier: Modifier, tikla: () -> Unit) {
+private fun Kisayol(ikon: ImageVector, ad: String, modifier: Modifier, rozet: Int = 0, tikla: () -> Unit) {
     Surface(modifier = modifier, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer, onClick = tikla) {
         Column(Modifier.padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-                Icon(ikon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            Box {
+                Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                    Icon(ikon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+                // Okunmamış mesaj sayısı
+                if (rozet > 0) Box(
+                    Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-4).dp).size(20.dp).clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.error),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(if (rozet > 9) "9+" else "$rozet", color = MaterialTheme.colorScheme.onError, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
             Spacer(Modifier.height(6.dp))
             Text(ad, style = MaterialTheme.typography.labelMedium, maxLines = 1)
