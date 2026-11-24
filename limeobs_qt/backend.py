@@ -182,6 +182,8 @@ class Backend(QObject):
     @Slot()
     def tryAutoLogin(self):
         """Kayıtlı oturum ya da anahtarlıktaki bilgilerle sessizce giriş dener."""
+        if not akbim_api.BASEURL:
+            return  # okul adresi henüz girilmemiş: giriş ekranı
         self._set_busy(True)
 
         def worker():
@@ -201,20 +203,30 @@ class Backend(QObject):
 
     schoolUrl = Property(str, _get_school_url, notify=schoolUrlChanged)
 
-    @Slot(str)
-    def setSchoolUrl(self, url):
-        """Akbim OBS kullanan başka bir okulun adresi (ör. okuladiobs.com)."""
+    def _apply_school(self, url):
+        """Akbim OBS kullanan okulun adresini ayarlar (ör. okuladiobs.com). Döner: geçerli mi."""
         url = (url or "").strip()
         if not url or " " in url or "." not in url:
-            self.loginFailed.emit("Geçerli bir okul OBS adresi gir (ör. okuladiobs.com).")
-            return
+            self.loginFailed.emit("Geçerli bir okul OBS adresi yaz (ör. okuladiobs.com).")
+            return False
         api_bridge.clear_active_session(clear_saved_login=False)
         api_bridge.set_base_url(url)
         self.schoolUrlChanged.emit()
+        return True
 
-    @Slot(str, str, bool)
-    def login(self, tc, password, remember):
-        tc, password = tc.strip(), password.strip()
+    @Slot(str)
+    def setSchoolUrl(self, url):
+        self._apply_school(url)
+
+    @Slot(str, str, str, bool)
+    def login(self, school, tc, password, remember):
+        tc, password, school = tc.strip(), password.strip(), (school or "").strip()
+        if not school:
+            self.loginFailed.emit("Okulunun OBS adresini yaz (ör. okuladiobs.com).")
+            return
+        if school.replace("https://", "").replace("http://", "").rstrip("/") != self._get_school_url():
+            if not self._apply_school(school):
+                return
         if not tc or not password:
             self.loginFailed.emit("T.C. kimlik numaranızı ve şifrenizi girin.")
             return

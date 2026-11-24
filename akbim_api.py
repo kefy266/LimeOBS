@@ -5,7 +5,7 @@ import os
 import pickle
 
 
-BASEURL = "https://tedemkolejiobs.com"
+BASEURL = ""  # okul OBS adresi; girişte kullanıcı belirler (api_bridge.set_base_url)
 
 class _TimeoutSession(requests.Session):
     """Zaman aşımı verilmeyen isteklerin sunucu yanıt vermediğinde sonsuza kadar beklemesini önler."""

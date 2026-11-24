@@ -54,18 +54,27 @@ else:
     CONFIG_FILE = Path(__file__).resolve().parent.parent / "akbim_config.json"
 
 
+# Eski sürümler okul adresini kaydetmeden bu adresi kullanıyordu; yalnızca kayıtlı girişi olanların
+# taşınması için tutulur, yeni kullanıcılara varsayılan okul gösterilmez.
+_LEGACY_BASE_URL = "https://tedemkolejiobs.com"
+
+
 def get_saved_base_url():
-    """Kayıtlı okul sunucu adresini döner, varsayılan https://tedemkolejiobs.com"""
+    """Kayıtlı okul sunucu adresi; kayıt yoksa boş metin (kullanıcı girişte okul adresini yazar)."""
     if CONFIG_FILE.exists():
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-                url = cfg.get("base_url")
+                url = json.load(f).get("base_url")
                 if url:
                     return url.strip().rstrip("/")
         except Exception:
             pass
-    return "https://tedemkolejiobs.com"
+    try:
+        if get_saved_credentials():
+            return set_base_url(_LEGACY_BASE_URL)
+    except Exception:
+        pass
+    return ""
 
 
 def set_base_url(url):

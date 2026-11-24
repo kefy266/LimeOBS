@@ -12,7 +12,7 @@ Ortam değişkenleri (LimeOBS-mailer > Settings > Secrets and variables > Action
   GMAIL_USER                   Gönderen Gmail adresi
   GMAIL_APP_PASSWORD           Gmail uygulama şifresi (gerçek Gmail şifresi DEĞİL)
   MAIL_TO                      (isteğe bağlı) alıcı; boşsa GMAIL_USER
-  OBS_BASE_URL                 (isteğe bağlı) varsayılan https://tedemkolejiobs.com
+  OBS_BASE_URL                 okulun OBS adresi (ör. https://okuladiobs.com)
   STATE_FILE                   (isteğe bağlı) görülen kayıtların tutulduğu dosya
 
 Depo herkese açık olduğundan iş kayıtlarına ad, ders, not gibi kişisel bilgi YAZILMAZ; yalnızca sayılar.

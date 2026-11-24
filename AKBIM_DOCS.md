@@ -10,7 +10,7 @@ Sistem PHP oturum çerezleri (`PHPSESSID`) üzerinden çalışır. Oturumu diske
 
 ### Temel Değişkenler
 
-- **BASEURL:** `https://tedemkolejiobs.com`
+- **BASEURL:** `https://okuladiobs.com`
 - **Cookie Dosyası:** `akbim_session.pkl`
 
 ---
@@ -71,7 +71,7 @@ import os
 import pickle
 import requests
 
-BASEURL = "https://tedemkolejiobs.com"
+BASEURL = "https://okuladiobs.com"
 COOKIE_FILE = "akbim_session.pkl"
 
 session = requests.Session()

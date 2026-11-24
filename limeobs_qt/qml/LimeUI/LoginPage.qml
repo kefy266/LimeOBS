@@ -7,7 +7,6 @@ Rectangle {
     id: root
     color: Theme.bg
     property string error: ""
-    property bool editingSchool: false
 
     Connections {
         target: App
@@ -57,18 +56,26 @@ Rectangle {
         Text {
             Layout.alignment: Qt.AlignHCenter
             Layout.bottomMargin: 10
-            text: qsTr("Okulunun OBS bilgileriyle giriş yap • %1").arg(App.schoolUrl)
+            text: qsTr("Okulunun OBS bilgileriyle giriş yap")
             font.family: Theme.font
             font.pixelSize: Theme.fontUi
             color: Theme.textMuted
         }
 
+        // Akbim OBS kullanan herhangi bir okul: tarayıcıda OBS'e girilen adres
+        Field {
+            id: school
+            text: App.schoolUrl
+            placeholderText: qsTr("Okulunun OBS adresi (ör. okuladiobs.com)")
+            inputMethodHints: Qt.ImhUrlCharactersOnly
+            onAccepted: tc.forceActiveFocus()
+        }
         Field {
             id: tc
             placeholderText: qsTr("T.C. kimlik numarası")
             inputMethodHints: Qt.ImhDigitsOnly
             maximumLength: 11
-            focus: true
+            focus: school.text.length > 0
             onAccepted: password.forceActiveFocus()
         }
         Field {
@@ -100,62 +107,8 @@ Rectangle {
             implicitHeight: 44
             variant: "primary"
             text: App.busy ? qsTr("Giriş yapılıyor…") : qsTr("Giriş yap")
-            enabled: !App.busy && tc.text.length > 0 && password.text.length > 0
-            onClicked: { root.error = ""; App.login(tc.text, password.text, remember.checked) }
-        }
-
-        // Akbim OBS kullanan başka bir okul için sunucu adresi
-        Text {
-            visible: !root.editingSchool
-            Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: 4
-            text: qsTr("Başka okul mu? Adresi değiştir")
-            font.family: Theme.font
-            font.pixelSize: Theme.fontSmall
-            font.underline: schoolLink.containsMouse
-            color: Theme.accent
-            MouseArea {
-                id: schoolLink
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: { schoolField.text = App.schoolUrl; root.editingSchool = true; schoolField.forceActiveFocus() }
-            }
-        }
-        ColumnLayout {
-            visible: root.editingSchool
-            Layout.fillWidth: true
-            spacing: 8
-            Text {
-                Layout.fillWidth: true
-                text: qsTr("Okulunun OBS adresi (tarayıcıda OBS'e girdiğin adres)")
-                wrapMode: Text.WordWrap
-                font.family: Theme.font
-                font.pixelSize: Theme.fontSmall
-                color: Theme.textMuted
-            }
-            Field {
-                id: schoolField
-                placeholderText: qsTr("ör. okuladiobs.com")
-                inputMethodHints: Qt.ImhUrlCharactersOnly
-                onAccepted: saveSchool.clicked()
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                OButton {
-                    Layout.fillWidth: true
-                    text: qsTr("Vazgeç")
-                    onClicked: root.editingSchool = false
-                }
-                OButton {
-                    id: saveSchool
-                    Layout.fillWidth: true
-                    variant: "primary"
-                    text: qsTr("Kaydet")
-                    enabled: schoolField.text.trim().length > 3
-                    onClicked: { root.error = ""; App.setSchoolUrl(schoolField.text); root.editingSchool = false }
-                }
-            }
+            enabled: !App.busy && school.text.trim().length > 3 && tc.text.length > 0 && password.text.length > 0
+            onClicked: { root.error = ""; App.login(school.text, tc.text, password.text, remember.checked) }
         }
     }
 }

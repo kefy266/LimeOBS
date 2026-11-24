@@ -75,7 +75,7 @@ TryExec=$BIN_DIR/limeobs
 Icon=$APP_ID
 Terminal=false
 Categories=Education;
-Keywords=limeobs;obs;akbim;tedem;okul;öğrenci;ders;sınav;ödev;
+Keywords=limeobs;obs;akbim;okul;öğrenci;ders;sınav;ödev;
 StartupWMClass=$APP_ID
 StartupNotify=true
 EOF
