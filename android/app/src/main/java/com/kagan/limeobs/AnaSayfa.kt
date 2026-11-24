@@ -98,7 +98,7 @@ fun kalanMetni(gun: Long): String = when {
     else -> "$gun gün"
 }
 
-private data class Bugun(val ana: AnaVeri, val profil: Profil, val odevler: List<Odev>, val sinav: SinavOzeti?)
+private data class Bugun(val ana: AnaVeri, val profil: Profil, val odevler: List<Odev>, val sinav: SinavOzeti?, val yemek: List<YemekListesi.Gun>)
 
 @Composable
 fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
@@ -121,8 +121,9 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
                 val o = async { runCatching { obs.odevler(zorla) }.getOrDefault(emptyList()) }
                 // Sınav özeti yalnızca tablette (sağ sütunda) gösterilir
                 val s = async { if (genis) runCatching { obs.sinavlar(zorla) }.getOrNull() else null }
+                val y = async { runCatching { YemekListesi.coz(ctx, obs.yemekPdf(zorla)) }.getOrDefault(emptyList()) }
                 runCatching { Takvim.hazirla(ctx) }
-                Bugun(a.await(), p.await(), o.await(), s.await())
+                Bugun(a.await(), p.await(), o.await(), s.await(), y.await())
             }
         },
     ) { b ->
@@ -132,6 +133,10 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
         (if (genis) sag else sol) += { TatilBandi(simdi.toLocalDate()) }
         sol += { SimdiKarti(b.ana.program, simdi) { sekmeyeGit(Sekme.PROGRAM) } }
         (if (genis) sag else sol) += { Kisayollar(ac) }
+        val yemekGunu = etkinOkulGunu(simdi)
+        YemekListesi.gunun(b.yemek, yemekGunu)?.let { g ->
+            (if (genis) sag else sol) += { YemekKarti(g, yemekGunu == simdi.toLocalDate()) { ac(Sayfa.YEMEK) } }
+        }
         val aktif = b.odevler.filter { it.aktif && it.durumKod == 0 }.sortedBy { Obs.tarihSayi(it.bitis) }
         sol += {
             Kart(Modifier.clickable { sekmeyeGit(Sekme.ODEV) }) {
@@ -207,6 +212,25 @@ fun AnaSayfa(ac: (Sayfa) -> Unit, sekmeyeGit: (Sekme) -> Unit) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { sag.forEach { it() } }
             }
         } else sol.forEach { k -> item { k() } }
+    }
+}
+
+/** Okul gününün yemeği (bugün ya da okulun açılacağı gün). */
+@Composable
+private fun YemekKarti(g: YemekListesi.Gun, bugun: Boolean, git: () -> Unit) {
+    Kart(Modifier.clickable(onClick = git)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Restaurant, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(if (bugun) "Bugünün yemeği" else "${GUN_ADLARI[(g.tarih ?: LocalDate.now()).dayOfWeek.value - 1]} yemeği",
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            Icon(Icons.Outlined.ChevronRight, null)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(g.yemekler.joinToString(" • ") { guzelAd(it) }, style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

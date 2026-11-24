@@ -109,19 +109,31 @@ fun ProgramEkrani() {
             return@Yukle
         }
         item {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Programdaki bütün günler (hafta sonu dersi varsa o da) tek satıra sığar
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (g in 1..gunSayisi) {
                     val tarih = gunTarihi(g)
                     val tatil = g <= 5 && Takvim.okulYokNedeni(tarih) != null
-                    FilterChip(
-                        selected = secili == g, onClick = { secili = g },
-                        label = {
+                    val sec = secili == g
+                    Surface(
+                        onClick = { secili = g }, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (sec) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                        border = if (sec) null else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    ) {
+                        Column(Modifier.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")[g - 1] + " " + "%02d.%02d".format(tarih.dayOfMonth, tarih.monthValue),
+                                listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")[g - 1], fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (tarih == LocalDate.now()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                "%02d.%02d".format(tarih.dayOfMonth, tarih.monthValue), style = MaterialTheme.typography.labelSmall,
+                                color = if (tatil) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                                 textDecoration = if (tatil) androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
                             )
-                        },
-                    )
+                        }
+                    }
                 }
             }
         }

@@ -53,6 +53,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -333,16 +334,48 @@ fun YemekEkrani() {
     val ctx = LocalContext.current
     val obs = Obs.al(ctx)
     var buyuk by remember { mutableStateOf<ImageBitmap?>(null) }
-    Yukle(anahtar = "yemek", yukle = { pdfSayfalari(ctx, obs.yemekPdf(it)) }) { sayfalar ->
-        item {
-            Text(
-                "Okulunun yüklediği yemek listesi. Yakınlaştırmak için sayfaya dokun.",
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    var pdfGoster by rememberSaveable { mutableStateOf(false) }
+    Yukle(anahtar = "yemek$pdfGoster", yukle = { zorla ->
+        val pdf = obs.yemekPdf(zorla)
+        val gunler = YemekListesi.coz(ctx, pdf)
+        // Liste okunamazsa PDF'e dön
+        gunler to (if (pdfGoster || gunler.isEmpty()) pdfSayfalari(ctx, pdf) else emptyList())
+    }) { (gunler, sayfalar) ->
+        if (gunler.isNotEmpty()) item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(!pdfGoster, { pdfGoster = false }, label = { Text("Gün gün") })
+                FilterChip(pdfGoster, { pdfGoster = true }, label = { Text("PDF") })
+            }
         }
-        items(sayfalar) { s ->
-            Surface(shape = RoundedCornerShape(16.dp), onClick = { buyuk = s }, modifier = Modifier.fillMaxWidth()) {
-                Image(s, "Yemek listesi sayfası", Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+        if (!pdfGoster && gunler.isNotEmpty()) {
+            val bugun = java.time.LocalDate.now()
+            val haftaBasi = bugun.with(java.time.DayOfWeek.MONDAY)
+            val kalan = gunler.filter { it.tarih == null || !it.tarih.isBefore(haftaBasi) }
+            if (kalan.isEmpty()) item { BosDurum("Bu ayın listesi bitti", "Okul yeni ayın listesini yükleyince burada görünecek. Eski liste için PDF'e bak.") }
+            items(kalan) { g ->
+                val bugunMu = g.tarih == bugun
+                Kart(renk = if (bugunMu) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(g.baslik, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        if (bugunMu) Rozet("Bugün", renk = MaterialTheme.colorScheme.primary, yazi = MaterialTheme.colorScheme.onPrimary)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    if (g.yemekler.isEmpty()) Text("Yemek yazılmamış (tatil olabilir)", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    g.yemekler.forEach { y -> Text("• " + guzelAd(y), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(vertical = 1.dp)) }
+                }
+            }
+        } else {
+            item {
+                Text(
+                    if (gunler.isEmpty()) "Liste yazıya çevrilemedi; okulun PDF'i gösteriliyor. Yakınlaştırmak için sayfaya dokun."
+                    else "Okulunun yüklediği yemek listesi. Yakınlaştırmak için sayfaya dokun.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            items(sayfalar) { s ->
+                Surface(shape = RoundedCornerShape(16.dp), onClick = { buyuk = s }, modifier = Modifier.fillMaxWidth()) {
+                    Image(s, "Yemek listesi sayfası", Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+                }
             }
         }
     }

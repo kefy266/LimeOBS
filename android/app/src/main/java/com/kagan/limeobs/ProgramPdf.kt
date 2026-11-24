@@ -54,7 +54,9 @@ object ProgramPdf {
         val okul = profil?.okul.orEmpty()
         val ogrenci = profil?.ad?.let(::guzelAd).orEmpty()
 
-        val saatler = program.hucreler.filter { it.gun in 1..5 }.map { it.saat }.distinct().sorted()
+        // Hafta içi her zaman; Cumartesi/Pazar dersi varsa onlar da
+        val gunSayisi = maxOf(5, program.hucreler.maxOfOrNull { it.gun } ?: 5).coerceAtMost(7)
+        val saatler = program.hucreler.filter { it.gun in 1..gunSayisi }.map { it.saat }.distinct().sorted()
         if (saatler.isEmpty()) throw IllegalStateException("Ders programında ders bulunamadı.")
         val hucre = program.hucreler.associateBy { it.gun to it.saat }
 
@@ -90,10 +92,10 @@ object ProgramPdf {
 
         // --- Tablo
         val saatW = 68f; val gunH = 25f; val bosluk = 4f; val altH = 22f
-        val sutunW = (W - 2 * kenar - saatW) / 5
+        val sutunW = (W - 2 * kenar - saatW) / gunSayisi
         val satirH = minOf(62f, (H - y - kenar - altH - gunH) / saatler.size)
         val gunKalem = kalem(10.5f, Color.WHITE, true)
-        for (i in 0 until 5) {
+        for (i in 0 until gunSayisi) {
             val r = RectF(kenar + saatW + i * sutunW + bosluk / 2, y, kenar + saatW + (i + 1) * sutunW - bosluk / 2, y + gunH - bosluk)
             dolgu.color = YESIL; dolgu.style = Paint.Style.FILL
             c.drawRoundRect(r, 4.5f, 4.5f, dolgu)
@@ -112,7 +114,7 @@ object ProgramPdf {
             val aralik = program.saatler.getOrNull(saat - 1).orEmpty().replace(" ", "").replace("-", " – ")
             c.yaz("$saat. ders", noKalem, kenar, ry + satirH / 2 - 12f, saatW - 6f, Layout.Alignment.ALIGN_OPPOSITE)
             c.yaz(aralik, saatKalem, kenar, ry + satirH / 2, saatW - 6f, Layout.Alignment.ALIGN_OPPOSITE)
-            for (g in 1..5) {
+            for (g in 1..gunSayisi) {
                 val r = RectF(kenar + saatW + (g - 1) * sutunW + bosluk / 2, ry + bosluk / 2,
                     kenar + saatW + g * sutunW - bosluk / 2, ry + satirH - bosluk / 2)
                 val h = hucre[g to saat]

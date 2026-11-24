@@ -4,3 +4,7 @@
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
 -keepattributes Signature, InnerClasses, EnclosingMethod
+# PDFBox-Android (yemek listesi): isteğe bağlı JPEG2000 çözücüsü yok; yazı tipi/kodlama sınıfları yansımayla yüklenir
+-dontwarn com.gemalto.jp2.**
+-keep class com.tom_roush.pdfbox.** { *; }
+-keep class com.tom_roush.fontbox.** { *; }
