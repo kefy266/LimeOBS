@@ -41,8 +41,16 @@ jobs:
           fi
 
       - name: Sürüm bilgisi
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then AD="${GITHUB_REF_NAME#v}"; else AD="1.2.$((GITHUB_RUN_NUMBER - 21))"; fi  # 1.2.0 = 21. derleme
+          # Masaüstü ve mobil aynı sürüm numarasını kullanır: tek kaynak main dalındaki limeobs_qt/version.py
+          AD=$(curl -sf -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github.raw" \
+            "https://api.github.com/repos/${{ github.repository }}/contents/limeobs_qt/version.py?ref=main" \
+            | sed -n 's/^VERSION = "\(.*\)"/\1/p')
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then AD="${GITHUB_REF_NAME#v}"; fi
+          [ -n "$AD" ] || { echo "::error::version.py okunamadı"; exit 1; }
+          echo "Sürüm: $AD (derleme $GITHUB_RUN_NUMBER)"
           echo "LIMEOBS_VERSION_NAME=$AD" >> "$GITHUB_ENV"
           echo "LIMEOBS_VERSION_CODE=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
 
