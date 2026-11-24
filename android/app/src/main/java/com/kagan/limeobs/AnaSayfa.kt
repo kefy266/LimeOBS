@@ -271,7 +271,7 @@ private fun SinavKarti(oz: SinavOzeti, git: () -> Unit) {
             zayif.forEach { d ->
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(d.ders, Modifier.width(110.dp), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                    Text(guzelAd(d.ders), Modifier.width(110.dp), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
                     LinearProgressIndicator(
                         progress = { (d.oran / 100).toFloat().coerceIn(0f, 1f) },
                         modifier = Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(50)),
