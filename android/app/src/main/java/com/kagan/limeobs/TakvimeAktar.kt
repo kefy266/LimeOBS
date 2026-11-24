@@ -66,9 +66,33 @@ object TakvimeAktar {
         return null
     }
 
+    /** Telefonda hiç takvim hesabı yoksa (ör. Google hesabı açılmamış) cihazda yerel "LimeOBS" takvimi oluşturur. */
+    private fun yerelTakvimOlustur(ctx: Context): Long? {
+        val hesap = "LimeOBS"
+        val uri = CalendarContract.Calendars.CONTENT_URI.buildUpon()
+            .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
+            .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_NAME, hesap)
+            .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
+            .build()
+        val degerler = ContentValues().apply {
+            put(CalendarContract.Calendars.ACCOUNT_NAME, hesap)
+            put(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
+            put(CalendarContract.Calendars.NAME, "LimeOBS")
+            put(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, "LimeOBS")
+            put(CalendarContract.Calendars.CALENDAR_COLOR, 0xFF3F8F34.toInt())
+            put(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL, CalendarContract.Calendars.CAL_ACCESS_OWNER)
+            put(CalendarContract.Calendars.OWNER_ACCOUNT, hesap)
+            put(CalendarContract.Calendars.VISIBLE, 1)
+            put(CalendarContract.Calendars.SYNC_EVENTS, 1)
+            put(CalendarContract.Calendars.CALENDAR_TIME_ZONE, java.util.TimeZone.getDefault().id)
+        }
+        return runCatching { ctx.contentResolver.insert(uri, degerler)?.lastPathSegment?.toLongOrNull() }.getOrNull()
+    }
+
     /** Döner: eklenen etkinlik sayısı. Takvim izni önceden alınmış olmalı. */
     suspend fun hepsiniAktar(ctx: Context): Int = withContext(Dispatchers.IO) {
-        val takvim = takvimKimligi(ctx) ?: throw IllegalStateException("Telefonda yazılabilir bir takvim bulunamadı.")
+        val takvim = takvimKimligi(ctx) ?: yerelTakvimOlustur(ctx)
+            ?: throw IllegalStateException("Telefonda yazılabilir bir takvim bulunamadı.")
         val prefs = ctx.getSharedPreferences("limeobs", Context.MODE_PRIVATE)
         val aktarilan = prefs.getStringSet("takvimeAktarilan", emptySet())!!.toMutableSet()
         var sayi = 0
