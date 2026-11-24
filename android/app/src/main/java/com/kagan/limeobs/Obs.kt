@@ -205,7 +205,8 @@ class Obs private constructor(ctx: Context) {
         .build()
 
     var adres: String
-        get() = prefs.getString("adres", VARSAYILAN_ADRES) ?: VARSAYILAN_ADRES
+        // Varsayılan okul yok: kullanıcı girişte okulunun OBS adresini yazar
+        get() = prefs.getString("adres", "") ?: ""
         set(deger) {
             var a = deger.trim().trimEnd('/')
             if (!a.startsWith("http://") && !a.startsWith("https://")) a = "https://$a"
@@ -807,7 +808,6 @@ class Obs private constructor(ctx: Context) {
         set(v) = prefs.edit().putBoolean("bildirimlerAcik", v).apply()
 
     companion object {
-        const val VARSAYILAN_ADRES = "https://tedemkolejiobs.com"
 
         @Volatile
         private var ornek: Obs? = null

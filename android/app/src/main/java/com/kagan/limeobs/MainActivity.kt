@@ -110,10 +110,10 @@ fun GirisEkrani(basarili: () -> Unit) {
     var goster by remember { mutableStateOf(false) }
     var bekliyor by remember { mutableStateOf(false) }
     var hata by remember { mutableStateOf<String?>(null) }
-    var adresAcik by remember { mutableStateOf(false) }
 
     fun giris() {
         if (tc.isBlank() || sifre.isBlank() || bekliyor) return
+        if (!adres.contains('.')) { hata = "Okulunun OBS adresini yaz (ör. okuladiobs.com)."; return }
         bekliyor = true
         hata = null
         kapsam.launch {
@@ -148,6 +148,14 @@ fun GirisEkrani(basarili: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
+        // Akbim OBS kullanan herhangi bir okul: tarayıcıda OBS'e girilen adres
+        OutlinedTextField(
+            value = adres, onValueChange = { adres = it.trim() },
+            label = { Text("Okulunun OBS adresi") }, placeholder = { Text("ör. okuladiobs.com") },
+            leadingIcon = { Icon(Icons.Outlined.School, null) },
+            singleLine = true, modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+        )
         OutlinedTextField(
             value = tc, onValueChange = { tc = it.filter(Char::isDigit).take(11) },
             label = { Text("T.C. kimlik numarası") }, leadingIcon = { Icon(Icons.Outlined.Badge, null) },
@@ -167,24 +175,13 @@ fun GirisEkrani(basarili: () -> Unit) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
             keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { giris() }),
         )
-        if (adresAcik) {
-            OutlinedTextField(
-                value = adres, onValueChange = { adres = it.trim() },
-                label = { Text("Okul OBS adresi") }, leadingIcon = { Icon(Icons.Outlined.School, null) },
-                singleLine = true, modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-            )
-        }
         if (hata != null) Text(hata!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
         Button(
-            onClick = { giris() }, enabled = !bekliyor && tc.isNotBlank() && sifre.isNotBlank(),
+            onClick = { giris() }, enabled = !bekliyor && adres.contains('.') && tc.isNotBlank() && sifre.isNotBlank(),
             modifier = Modifier.fillMaxWidth().height(54.dp),
         ) {
             if (bekliyor) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
             else Text("Giriş yap", fontWeight = FontWeight.SemiBold)
-        }
-        TextButton(onClick = { adresAcik = !adresAcik }) {
-            Text(if (adresAcik) "Okul adresini gizle" else "Başka okul mu? Adresi değiştir")
         }
         Text(
             "Şifren telefonun donanım kasasında şifrelenerek saklanır ve yalnızca okulunun OBS sunucusuna gönderilir. " +
