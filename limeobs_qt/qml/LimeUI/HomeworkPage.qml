@@ -9,10 +9,20 @@ PageScaffold {
 
     property string tab: "pending"
 
-    Segmented {
-        model: [{ value: "pending", label: qsTr("Bekleyen") }, { value: "past", label: qsTr("Geçmiş") }]
-        value: page.tab
-        onPicked: v => page.tab = v
+    RowLayout {
+        Layout.fillWidth: true
+        Segmented {
+            model: [{ value: "pending", label: qsTr("Bekleyen") }, { value: "past", label: qsTr("Geçmiş") }]
+            value: page.tab
+            onPicked: v => page.tab = v
+        }
+        Item { Layout.fillWidth: true }
+        OButton {
+            text: qsTr("Takvime aktar")
+            iconName: "calendar"
+            enabled: page.ready
+            onClicked: App.exportCalendar()
+        }
     }
 
     SectionCard {

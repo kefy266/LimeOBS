@@ -1040,6 +1040,57 @@ class Backend(QObject):
             api_bridge.open_file_external(path)
 
     @Slot()
+    def exportCalendar(self):
+        """Yaklaşan sınavları ve teslim bekleyen ödevleri .ics takvim dosyası olarak kaydeder ve açar
+        (Google Takvim, Outlook, Apple Takvim ve Thunderbird içe aktarabilir)."""
+        def worker():
+            try:
+                from PySide6.QtCore import QStandardPaths
+                today = date.today()
+                events = []
+                for e in self._index().get("examList") or []:
+                    try:
+                        d = datetime.strptime(e.get("sinavTarih", ""), "%d.%m.%Y").date()
+                    except ValueError:
+                        continue
+                    if d >= today:
+                        name = (e.get("sinavAd") or "Sınav").strip()
+                        events.append((f"sinav-{d.isoformat()}-{abs(hash(name))}", f"📝 {name}", d, "Sınav • LimeOBS"))
+                for h in self._homeworks():
+                    if h["done"] or not h["endDate"]:
+                        continue
+                    d = date.fromisoformat(h["endDate"])
+                    if d >= today:
+                        events.append((f"odev-{h.get('id', h['title'])}", f"📚 {h['lesson']}: {h['title']}", d,
+                                       f"Ödev teslimi • {h['teacher']} • LimeOBS"))
+                if not events:
+                    self.toast.emit("Takvime aktarılacak yaklaşan sınav ya da ödev yok.")
+                    return
+
+                def esc(t):
+                    return str(t).replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+                stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+                lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//LimeOBS//TR", "CALSCALE:GREGORIAN",
+                         "X-WR-CALNAME:LimeOBS"]
+                for uid, title, d, desc in events:
+                    lines += ["BEGIN:VEVENT", f"UID:{uid}@limeobs", f"DTSTAMP:{stamp}",
+                              f"DTSTART;VALUE=DATE:{d:%Y%m%d}", f"DTEND;VALUE=DATE:{d + timedelta(days=1):%Y%m%d}",
+                              f"SUMMARY:{esc(title)}", f"DESCRIPTION:{esc(desc)}",
+                              # bir gün önce 18:00'de hatırlat
+                              "BEGIN:VALARM", "ACTION:DISPLAY", f"DESCRIPTION:{esc(title)}", "TRIGGER:-PT6H", "END:VALARM",
+                              "END:VEVENT"]
+                lines.append("END:VCALENDAR")
+                docs = Path(QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or Path.home())
+                docs.mkdir(parents=True, exist_ok=True)
+                path = docs / "LimeOBS Takvim.ics"
+                path.write_text("\r\n".join(lines) + "\r\n", encoding="utf-8")
+                self.toast.emit(f"{len(events)} sınav ve ödev kaydedildi: {path}")
+                api_bridge.open_file_external(path)
+            except Exception as exc:
+                self.toast.emit(f"Takvim dosyası oluşturulamadı: {exc}")
+        threading.Thread(target=worker, daemon=True).start()
+
+    @Slot()
     def exportSchedulePdf(self):
         """Haftalık ders programını PDF'e çizer, Belgeler klasörüne kaydeder ve açar."""
         def worker():

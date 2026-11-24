@@ -9,6 +9,16 @@ const MAX_BODY_BYTES = 40_000;
 const MAX_MESSAGES = 14;
 const MAX_MESSAGE_CHARS = 12_000;
 
+// Soru çözücü (mobil): fotoğraf ya da metin olarak gelen tek bir ödev/test sorusunu adım adım çözer.
+const VISION_MODEL = "qwen/qwen3.8-27b";
+const MAX_SOLVE_BYTES = 4_500_000; // ~3 MB'lık JPEG'in base64 hâli
+const SOLVE_PROMPT =
+  "Sen ortaokul öğrencilerine (LGS'ye hazırlanan) yardım eden sabırlı bir öğretmensin. Sana bir soru " +
+  "fotoğrafı ya da metni gelecek. Türkçe yanıt ver. Önce soruyu kısaca kendi cümlenle yaz, sonra çözümü " +
+  "numaralı adımlarla, her adımda neden öyle yaptığını açıklayarak anlat. Matematik ifadelerini düz metinle " +
+  "yaz (ör. 3/4, x^2, √16). Test sorusuysa en sonda **Cevap: X** biçiminde doğru şıkkı belirt. Fotoğraf " +
+  "okunamıyorsa ya da soru yoksa bunu kibarca söyle ve daha net bir fotoğraf iste. Tablo kullanma.";
+
 function error(status, code) {
   return new Response(JSON.stringify({ error: code }), {
     status,
@@ -26,10 +36,56 @@ function validMessages(messages) {
   );
 }
 
+async function solve(request, env) {
+  const raw = await request.text();
+  if (raw.length > MAX_SOLVE_BYTES) return error(413, "too_large");
+  let body;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return error(400, "bad_json");
+  }
+  const text = typeof body.text === "string" ? body.text.slice(0, 4000) : "";
+  const image = typeof body.image === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(body.image) ? body.image : "";
+  if (!text && !image) return error(400, "empty");
+  const content = [{ type: "text", text: text || "Fotoğraftaki soruyu çöz." }];
+  if (image) content.push({ type: "image_url", image_url: { url: image } });
+
+  const upstream = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${env.GROQ_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: VISION_MODEL,
+      messages: [
+        { role: "system", content: SOLVE_PROMPT },
+        { role: "user", content },
+      ],
+      stream: true,
+      temperature: 0.3,
+      max_completion_tokens: 3072,
+      reasoning_format: "hidden",
+    }),
+  });
+  if (!upstream.ok) {
+    console.log("groq solve error", upstream.status, (await upstream.text()).slice(0, 300));
+    return error(upstream.status === 429 ? 429 : 502, "upstream_error");
+  }
+  return new Response(upstream.body, {
+    headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache" },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const { pathname } = new URL(request.url);
     if (pathname === "/health") return new Response("ok");
+    if (pathname === "/v1/solve") {
+      if (request.method !== "POST") return error(405, "method_not_allowed");
+      const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+      const { success } = await env.LIMITER.limit({ key: ip });
+      if (!success) return error(429, "rate_limited");
+      return solve(request, env);
+    }
     if (pathname !== "/v1/chat") return error(404, "not_found");
     if (request.method !== "POST") return error(405, "method_not_allowed");
 
