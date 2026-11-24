@@ -28,7 +28,10 @@ Button {
             anchors.verticalCenter: parent.verticalCenter
         }
         Text {
+            // Dar alanda taşmasın: sığmazsa "…" ile kısalır
+            width: Math.min(implicitWidth, control.availableWidth - (control.iconName.length > 0 ? 24 : 0))
             text: control.text
+            elide: Text.ElideRight
             font: control.font
             color: control.fg
             anchors.verticalCenter: parent.verticalCenter

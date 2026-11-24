@@ -6,7 +6,7 @@ import LimeBackend
 // Hesap satırındaki ayarlar açılır kutusu: tema ve çıkış.
 Popup {
     id: root
-    width: 240
+    width: 280
     padding: 12
     background: Rectangle {
         radius: Theme.radius
@@ -42,9 +42,17 @@ Popup {
         OButton {
             visible: App.updateSupported
             Layout.fillWidth: true
-            text: qsTr("Güncellemeleri denetle (%1)").arg(App.appVersion)
+            text: qsTr("Güncellemeleri denetle")
             iconName: "refresh"
             onClicked: { root.close(); App.checkUpdates(true) }
+        }
+        Text {
+            Layout.fillWidth: true
+            text: qsTr("LimeOBS %1").arg(App.appVersion)
+            horizontalAlignment: Text.AlignHCenter
+            font.family: Theme.font
+            font.pixelSize: Theme.fontCaption
+            color: Theme.textFaint
         }
         OButton {
             Layout.fillWidth: true
