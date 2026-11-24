@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         BildirimIscisi.kanalOlustur(this)
         DersHatirlatici.kanalOlustur(this)
+        TemaAyari.yukle(this)
         val obs = Obs.al(this)
         setContent {
             LimeTema {

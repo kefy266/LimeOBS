@@ -80,14 +80,49 @@ private val Koyu = darkColorScheme(
     surfaceContainer = Color(0xFF1E211A), surfaceContainerHigh = Color(0xFF282B24), surfaceContainerLow = Color(0xFF191D16),
 )
 
+/** Tema seçimi: "sistem", "acik" ya da "koyu"; duvar kâğıdı renkleri (Android 12+) isteğe bağlı. */
+object TemaAyari {
+    private const val DOSYA = "limeobs"
+    val secim = androidx.compose.runtime.mutableStateOf("sistem")
+    val duvarKagidi = androidx.compose.runtime.mutableStateOf(true)
+
+    fun yukle(ctx: android.content.Context) {
+        val p = ctx.getSharedPreferences(DOSYA, android.content.Context.MODE_PRIVATE)
+        secim.value = p.getString("tema", "sistem") ?: "sistem"
+        duvarKagidi.value = p.getBoolean("duvarKagidiRenkleri", true)
+    }
+
+    fun ayarla(ctx: android.content.Context, tema: String? = null, duvar: Boolean? = null) {
+        val e = ctx.getSharedPreferences(DOSYA, android.content.Context.MODE_PRIVATE).edit()
+        tema?.let { secim.value = it; e.putString("tema", it) }
+        duvar?.let { duvarKagidi.value = it; e.putBoolean("duvarKagidiRenkleri", it) }
+        e.apply()
+    }
+}
+
 @Composable
 fun LimeTema(icerik: @Composable () -> Unit) {
-    val koyu = isSystemInDarkTheme()
+    val koyu = when (TemaAyari.secim.value) {
+        "koyu" -> true
+        "acik" -> false
+        else -> isSystemInDarkTheme()
+    }
     val ctx = LocalContext.current
     val renkler: ColorScheme = when {
-        Build.VERSION.SDK_INT >= 31 -> if (koyu) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
+        Build.VERSION.SDK_INT >= 31 && TemaAyari.duvarKagidi.value -> if (koyu) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
         koyu -> Koyu
         else -> Acik
+    }
+    // Durum ve gezinme çubuğu simgeleri seçilen temaya uysun (telefon açık temadayken uygulama koyu olabilir)
+    val gorunum = androidx.compose.ui.platform.LocalView.current
+    if (!gorunum.isInEditMode) {
+        androidx.compose.runtime.SideEffect {
+            val pencere = (gorunum.context as? android.app.Activity)?.window ?: return@SideEffect
+            androidx.core.view.WindowCompat.getInsetsController(pencere, gorunum).apply {
+                isAppearanceLightStatusBars = !koyu
+                isAppearanceLightNavigationBars = !koyu
+            }
+        }
     }
     MaterialTheme(colorScheme = renkler, content = icerik)
 }

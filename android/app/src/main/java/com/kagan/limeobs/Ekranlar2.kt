@@ -44,6 +44,8 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Mail
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Widgets
@@ -606,6 +608,25 @@ fun DahaEkrani(ac: (Sayfa) -> Unit, cikis: () -> Unit) {
             Satir(Icons.Outlined.Campaign, "Duyuru ve etkinlikler", "Okuldan haberler") { ac(Sayfa.DUYURULAR) }
         }
         Grup {
+            ListItem(
+                headlineContent = { Text("Tema") },
+                supportingContent = {
+                    Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("sistem" to "Sistem", "acik" to "Açık", "koyu" to "Koyu").forEach { (deger, ad) ->
+                            FilterChip(TemaAyari.secim.value == deger, { TemaAyari.ayarla(ctx, tema = deger) }, label = { Text(ad) })
+                        }
+                    }
+                },
+                leadingContent = { Icon(Icons.Outlined.DarkMode, null) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
+            if (Build.VERSION.SDK_INT >= 31) ListItem(
+                headlineContent = { Text("Duvar kâğıdı renkleri") },
+                supportingContent = { Text("Kapalıyken LimeOBS'un yeşil renkleri kullanılır") },
+                leadingContent = { Icon(Icons.Outlined.Palette, null) },
+                trailingContent = { Switch(TemaAyari.duvarKagidi.value, { TemaAyari.ayarla(ctx, duvar = it) }) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
             ListItem(
                 headlineContent = { Text("Bildirimler") },
                 supportingContent = { Text("Yeni ödev, sınav ve mesajlarda haber ver") },
