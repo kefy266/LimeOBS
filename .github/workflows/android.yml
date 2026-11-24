@@ -12,6 +12,11 @@ on:
 permissions:
   contents: write
 
+# Aynı anda iki derleme indirme dosyasını birbirinin üzerine yüklemesin
+concurrency:
+  group: android-derleme
+  cancel-in-progress: false
+
 jobs:
   apk:
     name: APK derle
