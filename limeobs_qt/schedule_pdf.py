@@ -6,7 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import QMarginsF, QRectF, Qt
 from PySide6.QtGui import QImage, QColor, QFont, QFontMetricsF, QPageLayout, QPageSize, QPainter, QPdfWriter, QPen
 
-DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma"]
+DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
 
 # Ders adına göre sabit, yumuşak renkler (aynı ders her zaman aynı renk)
 _PALETTE = ["#e3f1dc", "#dcebf7", "#fbe7d3", "#efe1f5", "#fbf3cf", "#d9f1ee",
@@ -53,7 +53,7 @@ def _logo():
 
 
 def render(path, week, student="", school="", class_name="", term=""):
-    """week: 5 elemanlı liste; her biri [{"time": "08:30-09:10", "lesson": ..., "teacher": ...}]."""
+    """week: Pazartesiden başlayan 5–7 elemanlı liste (hafta sonu dersi varsa 6 ya da 7); her biri [{"time": "08:30-09:10", "lesson": ..., "teacher": ...}]."""
     times = sorted({l["time"] for day in week for l in day if l.get("time")}, key=_time_key)
     if not times:
         raise ValueError("Ders programında ders bulunamadı.")
@@ -118,11 +118,11 @@ def render(path, week, student="", school="", class_name="", term=""):
     time_w = 24 * mm
     day_h = 9 * mm
     gap = 1.4 * mm
-    col_w = (W - 2 * margin - time_w) / 5
+    col_w = (W - 2 * margin - time_w) / len(week)
     row_h = min(22 * mm, (H - y - margin - footer_h - day_h) / len(times))
 
     p.setFont(font(10.5, QFont.DemiBold))
-    for i, name in enumerate(DAY_NAMES):
+    for i, name in enumerate(DAY_NAMES[:len(week)]):
         r = QRectF(x0 + time_w + i * col_w + gap / 2, y, col_w - gap, day_h - gap)
         p.setPen(Qt.NoPen)
         p.setBrush(_ACCENT)
@@ -140,7 +140,7 @@ def render(path, week, student="", school="", class_name="", term=""):
         p.setFont(font(8))
         p.drawText(QRectF(x0, ry + row_h / 2, time_w - 2 * mm, row_h / 2), Qt.AlignRight | Qt.AlignTop,
                    t.replace("-", " – "))
-        for i in range(5):
+        for i in range(len(week)):
             r = QRectF(x0 + time_w + i * col_w + gap / 2, ry + gap / 2, col_w - gap, row_h - gap)
             cell = grid.get((i, t))
             if not cell or not cell.get("lesson"):

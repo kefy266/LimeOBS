@@ -73,5 +73,5 @@ else:
             name="LimeOBS.app",
             icon=str(ROOT / "akbim_frontend" / "app_icon.icns"),
             bundle_identifier="com.kagan.limeobs",
-            info_plist={"NSHighResolutionCapable": True, "CFBundleShortVersionString": "1.1.2"},
+            info_plist={"NSHighResolutionCapable": True, "CFBundleShortVersionString": "1.1.3"},
         )

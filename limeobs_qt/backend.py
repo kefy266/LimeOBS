@@ -647,6 +647,13 @@ class Backend(QObject):
                                   (f" – {fmt_short(e['end'])}" if e["end"] != e["start"] else "")} for e in upcoming],
         }
 
+    @staticmethod
+    def _day_count(index):
+        """Programda dersi olan günlere göre gün sayısı: hafta içi her zaman, Cumartesi/Pazar dersi varsa onlar da."""
+        cells = ((index.get("lessonSchedule") or {}).get("data") or {}).get("data") or []
+        last = max([c.get("y") or 0 for c in cells] + [5])
+        return min(last, 7)
+
     def _load_schedule(self):
         index = self._index()
         today = date.today()
@@ -661,7 +668,7 @@ class Backend(QObject):
             monday = first - timedelta(days=first.weekday())
             note = f"Bu hafta {reason}; okulun açılacağı haftanın programı gösteriliyor."
         days = []
-        for i in range(5):
+        for i in range(self._day_count(index)):
             d = monday + timedelta(days=i)
             off = school_calendar.day_off_reason(d)
             days.append({"name": DAY_NAMES[i], "date": fmt_short(d), "isToday": d == today,
@@ -933,7 +940,7 @@ class Backend(QObject):
 
                 index = self._index()
                 monday = date.today() - timedelta(days=date.today().weekday())
-                week = [self._lessons(index, monday + timedelta(days=i)) for i in range(5)]
+                week = [self._lessons(index, monday + timedelta(days=i)) for i in range(self._day_count(index))]
                 raw = api_bridge.get_adaptive_profile_data() or {}
                 meta = api_bridge.get_school_metadata() or {}
                 cls = re.sub(r"^[A-ZÇĞİÖŞÜ]+-(?=\d)", "", str(raw.get("student_class") or "").strip())
